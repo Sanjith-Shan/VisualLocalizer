@@ -127,7 +127,8 @@ OpenCV's internal pool for servers that already run one call per core.
 
 ## Tuning protocol
 
-All settings were chosen on **heads training data only**. Heads has one training sequence
+All settings were tuned once on one training sequence: **heads `seq-02`**, training frames
+only. Heads has one training sequence
 of 200 subsampled frames. `tools/cv_tune.py` runs 10 folds: in fold k, frames with
 (position + k) mod 10 == 0 are queries, and the map leaves out those frames and three
 neighbours on each side, so the nearest map frame is at least 4 subsampled frames (20 raw
@@ -153,3 +154,25 @@ bytes, and compares with ground truth: translation error is the distance between
 centres, rotation error is the angle of R_est^T R_gt with the GT rotation first projected
 onto SO(3) (see `docs/BUG_LOG.md`, entry 1). A frame that fails to localize counts as
 infinite error, so medians and percentages are over all test frames.
+
+## Two ground truths
+
+7-Scenes' original poses come from depth SLAM (KinectFusion). Brachmann et al., "On the
+Limits of Pseudo Ground Truth in Visual Camera Re-localisation" (ICCV 2021) showed that
+rankings depend on which pseudo GT is used, and released an SfM pseudo GT plus per-frame
+estimates of several methods. The core supports both:
+
+- **Original GT (headline).** Map points from registered depth, poses from `pose.txt`.
+  Scored against `pose.txt`, and also, through `tools/score_pgt.py`, against the
+  paper's RGB-frame release of the same GT next to the released baseline estimates. That
+  release differs from `pose.txt` by one constant camera-side transform (2.56 cm, 0.67°),
+  which is fitted on training frames and applied to this work's estimates before scoring.
+- **SfM pseudo GT.** `vloc_build --mode tri --pose-file <scene>_train.txt` triangulates the
+  map with the SfM training poses and the file's focal length (525.1 to 527.7 depending on
+  the scene). Depth is not used, because the SfM frame and the depth camera are not
+  registered to each other. `vloc_eval --pose-file <scene>_test.txt` scores against SfM
+  test poses. The triangulation settings are the ones from the depth-vs-triangulation
+  comparison above, not retuned.
+
+The pose file format is the release's: `name qw qx qy qz tx ty tz focal`, world-to-camera,
+read by `read_pose_file` in `core/src/dataset.h`.
