@@ -4,6 +4,7 @@ package vloc
 
 /*
 #cgo CFLAGS: -I${SRCDIR}/../../../core/include
+#cgo LDFLAGS: -L${SRCDIR}/../../../core/build -lvloc -Wl,-rpath,${SRCDIR}/../../../core/build
 #include <stdlib.h>
 #include "vloc.h"
 */
@@ -16,7 +17,7 @@ import (
 	"unsafe"
 )
 
-// CgoEngine links libvloc. Link flags come from CGO_LDFLAGS (see service/Makefile).
+// CgoEngine links libvloc (core/build/libvloc.dylib, see docs/CORE_READY.md).
 type CgoEngine struct{}
 
 func (CgoEngine) Name() string { return "cgo" }

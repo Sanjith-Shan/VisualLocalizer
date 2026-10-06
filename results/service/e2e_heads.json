@@ -1,0 +1,13 @@
+{
+  "command": "python service/scripts/verify_e2e.py --url http://127.0.0.1:18081 --map heads --scene-dir /Users/sanjithshanmugavel/Data/7scenes/heads --eval-csv results/service/e2e_heads_eval.csv --out results/service/e2e_heads.json",
+  "time": "2026-10-06T11:20:24-0700",
+  "frames_checked": 50,
+  "ok_flag_mismatches": [],
+  "count_mismatches": [],
+  "max_abs_diff_trans_err_m": 4.937878863317188e-06,
+  "max_abs_diff_rot_err_deg": 4.871113951243622e-05,
+  "csv_precision": "vloc_eval writes trans_err_m to 5 decimals and rot_err_deg to 4",
+  "identical": true,
+  "service_ms_mean": 69.29390000000001,
+  "core_ms_mean": 68.02790567999999
+}
