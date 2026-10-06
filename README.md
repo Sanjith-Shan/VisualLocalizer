@@ -9,8 +9,9 @@ Microsoft 7-Scenes against published methods.
 
 - **One machine.** Every number was measured on one Apple Silicon Mac (6 performance and 6
   efficiency cores) that other jobs were also using during the accuracy runs. Throughput
-  figures are lower bounds. Latency was measured separately on a quiet host, see
-  `NUMBERS.md`.
+  figures are lower bounds. Latency was measured separately, one request at a time, after
+  the other benchmarks finished, but the host still carried a background load of 3 to 4
+  and the tail shows non-reproducible spikes (see `NUMBERS.md`).
 - **Classical features.** SIFT (RootSIFT) and OpenCV's kd-forest, MAGSAC and P3P. Nothing
   learned. On the original GT this is behind learned methods (DSAC*, hloc) on five of seven
   scenes.
