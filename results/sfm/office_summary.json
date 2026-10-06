@@ -1,0 +1,22 @@
+{
+  "scene": "office",
+  "split": "test",
+  "frames": 4000,
+  "localized": 3998,
+  "median_trans_cm": 1.11,
+  "median_rot_deg": 0.266,
+  "pct_within_5cm_5deg": 98.95,
+  "pct_within_2cm_2deg": 85.33,
+  "pct_within_10cm_10deg": 99.72,
+  "latency_ms_p50": 152.5,
+  "latency_ms_p90": 245.7,
+  "latency_ms_p99": 435.3,
+  "stage_ms_p50": {"decode": 0.8, "extract": 79.5, "match": 61.0, "pose": 9.8},
+  "median_inliers": 543,
+  "threads": 10,
+  "wall_s": 67.8,
+  "throughput_fps": 59.0,
+  "map_points": 153631,
+  "map_load_s": 0.75,
+  "command": "core/build/vloc_eval --map results/maps/office_sfm.vmap --scene-dir /Users/sanjithshanmugavel/Data/7scenes/office --threads 10 --pose-file /Users/sanjithshanmugavel/Data/7scenes_pgt/sfm/office_test.txt --csv results/sfm/office.csv --summary results/sfm/office_summary.json"
+}

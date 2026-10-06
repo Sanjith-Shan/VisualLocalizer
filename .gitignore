@@ -9,3 +9,4 @@ results/raw/
 __pycache__/
 *.vmap
 core/build-dev/
+results/CORE_IDLE

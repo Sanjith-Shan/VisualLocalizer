@@ -1,0 +1,22 @@
+{
+  "scene": "heads",
+  "split": "test",
+  "frames": 1000,
+  "localized": 1000,
+  "median_trans_cm": 0.43,
+  "median_rot_deg": 0.287,
+  "pct_within_5cm_5deg": 100.00,
+  "pct_within_2cm_2deg": 97.60,
+  "pct_within_10cm_10deg": 100.00,
+  "latency_ms_p50": 184.6,
+  "latency_ms_p90": 273.5,
+  "latency_ms_p99": 465.9,
+  "stage_ms_p50": {"decode": 0.8, "extract": 114.3, "match": 53.7, "pose": 12.9},
+  "median_inliers": 423,
+  "threads": 10,
+  "wall_s": 19.7,
+  "throughput_fps": 50.9,
+  "map_points": 26435,
+  "map_load_s": 0.12,
+  "command": "core/build/vloc_eval --map results/maps/heads_sfm.vmap --scene-dir /Users/sanjithshanmugavel/Data/7scenes/heads --threads 10 --pose-file /Users/sanjithshanmugavel/Data/7scenes_pgt/sfm/heads_test.txt --csv results/sfm/heads.csv --summary results/sfm/heads_summary.json"
+}

@@ -1,39 +1,93 @@
 {
-  "_note": "Published per-scene median errors on 7-Scenes with the original (depth SLAM) ground truth. [translation_cm, rotation_deg]. Copied from the cited tables, not from memory.",
-  "scenes": ["chess", "fire", "heads", "office", "pumpkin", "redkitchen", "stairs"],
+  "_note": "Published per-scene median errors on 7-Scenes, original depth-SLAM GT, [translation_cm, rotation_deg], copied from the cited tables. Active Search, hloc and DSAC* (RGB and RGB-D) are NOT taken from here: tools/score_pgt.py scores them from the per-frame estimates the authors released with Brachmann et al. ICCV 2021 (On the Limits of Pseudo Ground Truth), which reproduces that paper's Table 2 exactly.",
+  "scenes": [
+    "chess",
+    "fire",
+    "heads",
+    "office",
+    "pumpkin",
+    "redkitchen",
+    "stairs"
+  ],
   "methods": [
     {
       "name": "PoseNet",
       "paper": "Kendall, Grimes, Cipolla. PoseNet: A Convolutional Network for Real-Time 6-DOF Camera Relocalization. ICCV 2015",
       "source": "arXiv:1505.07427, Figure 6 table, PoseNet column (meters converted to cm)",
-      "median": {"chess": [32, 8.12], "fire": [47, 14.4], "heads": [29, 12.0], "office": [48, 7.68],
-                 "pumpkin": [47, 8.42], "redkitchen": [59, 8.64], "stairs": [47, 13.8]}
-    },
-    {
-      "name": "Active Search",
-      "paper": "Sattler, Leibe, Kobbelt. Efficient & Effective Prioritized Matching for Large-Scale Image-Based Localization. TPAMI 2017 (39(9))",
-      "source": "Sarlin et al., Back to the Feature (PixLoc), CVPR 2021, arXiv:2103.09213, Table 1 row 'AS', results provided by the AS authors",
-      "median": {"chess": [3, 0.87], "fire": [2, 1.01], "heads": [1, 0.82], "office": [4, 1.15],
-                 "pumpkin": [7, 1.69], "redkitchen": [5, 1.72], "stairs": [4, 1.01]},
-      "alt_source": "Brachmann and Rother, DSAC++, CVPR 2018, arXiv:1711.10228, Table 1 'Active Search' column (meters converted to cm)",
-      "alt_median": {"chess": [4, 2.0], "fire": [3, 1.5], "heads": [2, 1.5], "office": [9, 3.6],
-                     "pumpkin": [8, 3.1], "redkitchen": [7, 3.4], "stairs": [3, 2.2]}
-    },
-    {
-      "name": "hloc (SuperPoint + SuperGlue)",
-      "paper": "Sarlin, Cadena, Siegwart, Dymczyk. From Coarse to Fine (CVPR 2019) with SuperGlue (Sarlin et al., CVPR 2020)",
-      "source": "arXiv:2103.09213, Table 1 row 'hloc' (SuperPoint features matched with SuperGlue, SfM point cloud)",
-      "median": {"chess": [2, 0.85], "fire": [2, 0.94], "heads": [1, 0.75], "office": [3, 0.92],
-                 "pumpkin": [5, 1.30], "redkitchen": [4, 1.40], "stairs": [5, 1.47]}
+      "median": {
+        "chess": [
+          32,
+          8.12
+        ],
+        "fire": [
+          47,
+          14.4
+        ],
+        "heads": [
+          29,
+          12.0
+        ],
+        "office": [
+          48,
+          7.68
+        ],
+        "pumpkin": [
+          47,
+          8.42
+        ],
+        "redkitchen": [
+          59,
+          8.64
+        ],
+        "stairs": [
+          47,
+          13.8
+        ]
+      }
     },
     {
       "name": "DSAC* (RGB + 3D model)",
       "paper": "Brachmann and Rother. Visual Camera Re-Localization from RGB and RGB-D Images Using DSAC. TPAMI 2021",
       "source": "arXiv:2002.12324, Figure 6, row 'RGB + 3D model' (depth used for training only, as here)",
-      "median": {"chess": [1.8, 1.10], "fire": [1.9, 1.24], "heads": [1.1, 1.82], "office": [2.5, 1.15],
-                 "pumpkin": [3.9, 1.34], "redkitchen": [3.8, 1.68], "stairs": [2.9, 1.16]},
-      "pct_5cm_5deg": {"chess": 97.5, "fire": 93.5, "heads": 99.8, "office": 90.0,
-                       "pumpkin": 62.4, "redkitchen": 65.3, "stairs": 87.5}
+      "median": {
+        "chess": [
+          1.8,
+          1.1
+        ],
+        "fire": [
+          1.9,
+          1.24
+        ],
+        "heads": [
+          1.1,
+          1.82
+        ],
+        "office": [
+          2.5,
+          1.15
+        ],
+        "pumpkin": [
+          3.9,
+          1.34
+        ],
+        "redkitchen": [
+          3.8,
+          1.68
+        ],
+        "stairs": [
+          2.9,
+          1.16
+        ]
+      },
+      "pct_5cm_5deg": {
+        "chess": 97.5,
+        "fire": 93.5,
+        "heads": 99.8,
+        "office": 90.0,
+        "pumpkin": 62.4,
+        "redkitchen": 65.3,
+        "stairs": 87.5
+      }
     }
   ]
 }

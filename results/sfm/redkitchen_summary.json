@@ -1,0 +1,22 @@
+{
+  "scene": "redkitchen",
+  "split": "test",
+  "frames": 5000,
+  "localized": 5000,
+  "median_trans_cm": 0.77,
+  "median_rot_deg": 0.184,
+  "pct_within_5cm_5deg": 99.96,
+  "pct_within_2cm_2deg": 97.36,
+  "pct_within_10cm_10deg": 100.00,
+  "latency_ms_p50": 210.9,
+  "latency_ms_p90": 288.6,
+  "latency_ms_p99": 384.8,
+  "stage_ms_p50": {"decode": 0.9, "extract": 102.5, "match": 95.2, "pose": 10.6},
+  "median_inliers": 911,
+  "threads": 10,
+  "wall_s": 108.2,
+  "throughput_fps": 46.2,
+  "map_points": 241206,
+  "map_load_s": 1.02,
+  "command": "core/build/vloc_eval --map results/maps/redkitchen_sfm.vmap --scene-dir /Users/sanjithshanmugavel/Data/7scenes/redkitchen --threads 10 --pose-file /Users/sanjithshanmugavel/Data/7scenes_pgt/sfm/redkitchen_test.txt --csv results/sfm/redkitchen.csv --summary results/sfm/redkitchen_summary.json"
+}

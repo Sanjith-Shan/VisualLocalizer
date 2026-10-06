@@ -33,15 +33,15 @@ def main():
             row.append(fmt(cm, deg))
         if s in ours:
             o = ours[s]
-            row.append(f"**{o['median_trans_cm']:.1f} cm, {o['median_rot_deg']:.2f}°**")
+            row.append(f"{o['median_trans_cm']:.1f} cm, {o['median_rot_deg']:.2f}°")
         else:
             row.append("not run")
         print("| " + " | ".join(row) + " |")
 
-    print("\nThis work, full detail. Latency is per frame under the stated eval concurrency.\n")
+    print("\nThis work, full detail (raw pose.txt GT). Throughput is the multi-thread eval run.\n")
     print("| Scene | Test frames | Localized | Median | Within 5 cm, 5° | Within 2 cm, 2° | "
-          "DSAC* within 5 cm, 5° | p50 ms | p99 ms | Threads | Map points |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|")
+          "DSAC* RGB+3D within 5 cm, 5° | Eval threads | Throughput fps | Map points |")
+    print("|---|---|---|---|---|---|---|---|---|---|")
     dsac = next(m for m in base["methods"] if m["name"].startswith("DSAC*"))
     for s in scenes:
         if s not in ours:
@@ -49,8 +49,8 @@ def main():
         o = ours[s]
         print(f"| {s} | {o['frames']} | {100.0 * o['localized'] / o['frames']:.1f}% | "
               f"{o['median_trans_cm']:.2f} cm, {o['median_rot_deg']:.3f}° | {o['pct_within_5cm_5deg']:.1f}% | "
-              f"{o['pct_within_2cm_2deg']:.1f}% | {dsac['pct_5cm_5deg'][s]}% | {o['latency_ms_p50']:.0f} | "
-              f"{o['latency_ms_p99']:.0f} | {o['threads']} | {o['map_points']} |")
+              f"{o['pct_within_2cm_2deg']:.1f}% | {dsac['pct_5cm_5deg'][s]}% | {o['threads']} | "
+              f"{o['throughput_fps']:.1f} | {o['map_points']} |")
     print("\nSources:")
     for m in base["methods"]:
         print(f"- {m['name']}: {m['paper']}. Numbers from {m['source']}.")

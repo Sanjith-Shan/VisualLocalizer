@@ -1,0 +1,22 @@
+{
+  "scene": "stairs",
+  "split": "test",
+  "frames": 1000,
+  "localized": 999,
+  "median_trans_cm": 1.57,
+  "median_rot_deg": 0.478,
+  "pct_within_5cm_5deg": 92.20,
+  "pct_within_2cm_2deg": 62.10,
+  "pct_within_10cm_10deg": 98.80,
+  "latency_ms_p50": 164.7,
+  "latency_ms_p90": 222.0,
+  "latency_ms_p99": 250.2,
+  "stage_ms_p50": {"decode": 0.9, "extract": 96.4, "match": 52.3, "pose": 14.4},
+  "median_inliers": 360,
+  "threads": 10,
+  "wall_s": 16.9,
+  "throughput_fps": 59.2,
+  "map_points": 26256,
+  "map_load_s": 0.11,
+  "command": "core/build/vloc_eval --map results/maps/stairs_sfm.vmap --scene-dir /Users/sanjithshanmugavel/Data/7scenes/stairs --threads 10 --pose-file /Users/sanjithshanmugavel/Data/7scenes_pgt/sfm/stairs_test.txt --csv results/sfm/stairs.csv --summary results/sfm/stairs_summary.json"
+}
