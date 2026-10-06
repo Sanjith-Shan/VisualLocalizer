@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+// gRPC face of the positioning service. Same engine, map registry and admission pool as
+// the HTTP API; the deadline is the standard gRPC deadline.
+package vloc.v1;
+
+option go_package = "github.com/Sanjith-Shan/VisualLocalizer/service/gen/vlocpb";
+
+service Localizer {
+  rpc Localize(LocalizeRequest) returns (LocalizeResponse);
+  rpc ListMaps(ListMapsRequest) returns (ListMapsResponse);
+}
+
+message Intrinsics {
+  double fx = 1;
+  double fy = 2;
+  double cx = 3;
+  double cy = 4;
+}
+
+message LocalizeRequest {
+  string map = 1;
+  bytes image = 2;  // JPEG or PNG
+  Intrinsics intrinsics = 3;
+}
+
+message Pose {
+  double qw = 1;
+  double qx = 2;
+  double qy = 3;
+  double qz = 4;
+  double tx = 5;
+  double ty = 6;
+  double tz = 7;
+}
+
+message Timings {
+  double queue_ms = 1;
+  double decode_ms = 2;
+  double extract_ms = 3;
+  double match_ms = 4;
+  double pose_ms = 5;
+  double core_ms = 6;
+  double service_ms = 7;
+}
+
+message LocalizeResponse {
+  string request_id = 1;
+  int64 map_version = 2;
+  bool ok = 3;
+  string reason = 4;
+  Pose pose = 5;
+  int32 num_keypoints = 6;
+  int32 num_matches = 7;
+  int32 num_inliers = 8;
+  Timings timings = 9;
+}
+
+message ListMapsRequest {}
+
+message MapEntry {
+  string name = 1;
+  int64 version = 2;
+  int64 bytes = 3;
+  int32 num_points = 4;
+  string feature = 5;
+}
+
+message ListMapsResponse {
+  repeated MapEntry maps = 1;
+}

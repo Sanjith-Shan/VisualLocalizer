@@ -153,21 +153,31 @@ func (s *Server) readImage(w http.ResponseWriter, r *http.Request) ([]byte, imag
 		}
 		return nil, image.Config{}, bad(http.StatusBadRequest, CodeBadImage, "reading body: %v", err)
 	}
+	cfg, aerr := s.checkImage(body)
+	return body, cfg, aerr
+}
+
+// checkImage sniffs the type from the bytes and reads the dimensions from the header
+// without decoding pixels.
+func (s *Server) checkImage(body []byte) (image.Config, *apiErr) {
 	if len(body) == 0 {
-		return nil, image.Config{}, bad(http.StatusBadRequest, CodeEmptyBody, "request body must be a JPEG or PNG image")
+		return image.Config{}, bad(http.StatusBadRequest, CodeEmptyBody, "request body must be a JPEG or PNG image")
+	}
+	if int64(len(body)) > s.cfg.MaxImageBytes {
+		return image.Config{}, bad(http.StatusRequestEntityTooLarge, CodeImageTooLarge, "image is %d bytes, limit %d", len(body), s.cfg.MaxImageBytes)
 	}
 	ct := http.DetectContentType(body)
 	if ct != "image/jpeg" && ct != "image/png" {
-		return nil, image.Config{}, bad(http.StatusUnsupportedMediaType, CodeUnsupportedMedia, "body sniffed as %s, only image/jpeg and image/png are accepted", ct)
+		return image.Config{}, bad(http.StatusUnsupportedMediaType, CodeUnsupportedMedia, "body sniffed as %s, only image/jpeg and image/png are accepted", ct)
 	}
 	cfg, _, err := image.DecodeConfig(bytes.NewReader(body))
 	if err != nil {
-		return nil, image.Config{}, bad(http.StatusBadRequest, CodeBadImage, "cannot read %s header: %v", ct, err)
+		return image.Config{}, bad(http.StatusBadRequest, CodeBadImage, "cannot read %s header: %v", ct, err)
 	}
 	if cfg.Width < s.cfg.MinImageDim || cfg.Height < s.cfg.MinImageDim || cfg.Width > s.cfg.MaxImageDim || cfg.Height > s.cfg.MaxImageDim {
-		return nil, image.Config{}, bad(http.StatusUnprocessableEntity, CodeBadImageSize, "image is %dx%d, each side must be in [%d, %d]", cfg.Width, cfg.Height, s.cfg.MinImageDim, s.cfg.MaxImageDim)
+		return image.Config{}, bad(http.StatusUnprocessableEntity, CodeBadImageSize, "image is %dx%d, each side must be in [%d, %d]", cfg.Width, cfg.Height, s.cfg.MinImageDim, s.cfg.MaxImageDim)
 	}
-	return body, cfg, nil
+	return cfg, nil
 }
 
 func ms(d time.Duration) float64 { return float64(d.Microseconds()) / 1000 }
@@ -206,10 +216,32 @@ func (s *Server) localize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	out, err := s.run(ctx, start, name, img, icfg, k)
+	if err != nil {
+		var ae *apiErr
+		if errors.As(err, &ae) {
+			fail(ae)
+		} else {
+			s.reject(w, r, err)
+		}
+		return
+	}
+	if !out.OK {
+		setOutcome(w, "no_pose")
+	}
+	annotate(w, slog.Bool("pose_ok", out.OK), slog.Int("inliers", out.NumInliers),
+		slog.Float64("queue_ms", out.TimingsMs.Queue), slog.Float64("core_ms", out.TimingsMs.Core))
+	w.Header().Set("Server-Timing", fmt.Sprintf("queue;dur=%.3f, core;dur=%.3f, service;dur=%.3f", out.TimingsMs.Queue, out.TimingsMs.Core, out.TimingsMs.Service))
+	writeJSON(w, http.StatusOK, out)
+}
+
+// run is the transport-independent part of a localize call: acquire the map, pass
+// admission, call the core on a worker, record stage metrics and spans. It returns an
+// *apiErr or an admission rejection on failure.
+func (s *Server) run(ctx context.Context, start time.Time, name string, img []byte, icfg image.Config, k vloc.Intrinsics) (LocalizeResponse, error) {
 	h, err := s.Maps.Acquire(name)
 	if err != nil {
-		fail(bad(http.StatusNotFound, CodeMapNotFound, "no map named %s; GET /v1/maps lists loaded maps", name))
-		return
+		return LocalizeResponse{}, bad(http.StatusNotFound, CodeMapNotFound, "no map named %s; GET /v1/maps lists loaded maps", name)
 	}
 	defer h.Release()
 
@@ -219,29 +251,23 @@ func (s *Server) localize(w http.ResponseWriter, r *http.Request) {
 	st, err := s.Pool.Do(ctx, func() { res, coreErr = h.Map.Localize(img, k) })
 	s.m.Stages.WithLabelValues("queue").Observe(st.Queued.Seconds())
 	if err != nil {
-		s.reject(w, r, err)
-		return
+		return LocalizeResponse{}, err
 	}
 	s.stageSpans(ctx, enq, st, res)
 	if coreErr != nil {
-		fail(bad(http.StatusInternalServerError, CodeCoreError, "core: %v", coreErr))
-		return
+		return LocalizeResponse{}, bad(http.StatusInternalServerError, CodeCoreError, "core: %v", coreErr)
 	}
 
 	out := LocalizeResponse{
-		RequestID: RequestID(r.Context()), Map: name, MapVersion: h.Version, OK: res.OK,
+		RequestID: RequestID(ctx), Map: name, MapVersion: h.Version, OK: res.OK,
 		NumKeypoints: res.NumKeypoints, NumMatches: res.NumMatches, NumInliers: res.NumInliers,
 		ImageWidth: icfg.Width, ImageHeight: icfg.Height,
 	}
 	if res.OK {
-		p := &Pose{}
-		p.Q.W, p.Q.X, p.Q.Y, p.Q.Z = res.Qw, res.Qx, res.Qy, res.Qz
-		p.T.X, p.T.Y, p.T.Z = res.Tx, res.Ty, res.Tz
-		out.Pose = p
+		out.Pose = &Pose{Q: Quat{res.Qw, res.Qx, res.Qy, res.Qz}, T: Vec3{res.Tx, res.Ty, res.Tz}}
 		s.m.Inliers.Observe(float64(res.NumInliers))
 	} else {
 		out.Reason = res.Err
-		setOutcome(w, "no_pose")
 	}
 	core := res.CoreMs()
 	svc := ms(time.Since(start))
@@ -251,10 +277,13 @@ func (s *Server) localize(w http.ResponseWriter, r *http.Request) {
 		"pose": res.MsPose, "core": core, "overhead": svc - core} {
 		s.m.Stages.WithLabelValues(stage).Observe(v / 1000)
 	}
-	annotate(w, slog.Bool("pose_ok", res.OK), slog.Int("inliers", res.NumInliers),
-		slog.Float64("queue_ms", out.TimingsMs.Queue), slog.Float64("core_ms", core))
-	w.Header().Set("Server-Timing", fmt.Sprintf("queue;dur=%.3f, core;dur=%.3f, service;dur=%.3f", out.TimingsMs.Queue, core, svc))
-	writeJSON(w, http.StatusOK, out)
+	return out, nil
+}
+
+// shedReason labels an admission rejection for metrics.
+func shedReason(err error) string {
+	return map[error]string{admit.ErrQueueFull: "queue_full", admit.ErrWouldMiss: "would_miss_deadline",
+		admit.ErrExpired: "expired_in_queue", admit.ErrClosed: "shutting_down"}[err]
 }
 
 func (s *Server) reject(w http.ResponseWriter, r *http.Request, err error) {
@@ -263,8 +292,7 @@ func (s *Server) reject(w http.ResponseWriter, r *http.Request, err error) {
 		writeErr(w, r, http.StatusInternalServerError, CodeInternal, err.Error())
 		return
 	}
-	reason := map[error]string{admit.ErrQueueFull: "queue_full", admit.ErrWouldMiss: "would_miss_deadline",
-		admit.ErrExpired: "expired_in_queue", admit.ErrClosed: "shutting_down"}[rej.Err]
+	reason := shedReason(rej.Err)
 	s.m.Shed.WithLabelValues(reason).Inc()
 	annotate(w, slog.String("shed_reason", reason), slog.Float64("est_wait_ms", ms(rej.EstWait)))
 	w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(rej.RetryAfter.Seconds()))))

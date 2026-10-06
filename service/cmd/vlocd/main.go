@@ -30,6 +30,7 @@ func (m *mapFlags) Set(v string) error { *m = append(*m, v); return nil }
 func main() {
 	var (
 		addr       = flag.String("addr", ":8080", "listen address")
+		grpcAddr   = flag.String("grpc-addr", "", "gRPC listen address (off when empty)")
 		engineName = flag.String("engine", "auto", "auto, cgo or fake (auto = cgo when built with -tags vloc)")
 		fakeWork   = flag.Duration("fake-work", 20*time.Millisecond, "CPU time the fake engine burns per request")
 		mapDir     = flag.String("map-dir", "maps", "directory for ingested maps; every *.vmap in it loads at startup")
@@ -53,13 +54,13 @@ func main() {
 		os.Exit(2)
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: lvl}))
-	if err := run(log, *addr, *engineName, *fakeWork, *mapDir, *workers, *queue, *noShed, *defDL, *maxImg, *maxMap, *traceMode, *grace, preload); err != nil {
+	if err := run(log, *addr, *grpcAddr, *engineName, *fakeWork, *mapDir, *workers, *queue, *noShed, *defDL, *maxImg, *maxMap, *traceMode, *grace, preload); err != nil {
 		log.Error("fatal", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(log *slog.Logger, addr, engineName string, fakeWork time.Duration, mapDir string, workers, queue int,
+func run(log *slog.Logger, addr, grpcAddr, engineName string, fakeWork time.Duration, mapDir string, workers, queue int,
 	noShed bool, defDL time.Duration, maxImg, maxMap int64, traceMode string, grace time.Duration, preload []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -117,8 +118,18 @@ func run(log *slog.Logger, addr, engineName string, fakeWork time.Duration, mapD
 	}
 	log.Info("listening", "addr", ln.Addr().String(), "engine", engine.Name(), "workers", pool.Workers(),
 		"maps", srv.Maps.Len(), "trace", traceMode)
-	errc := make(chan error, 1)
+	errc := make(chan error, 2)
 	go func() { errc <- hs.Serve(ln) }()
+	if grpcAddr != "" {
+		gl, err := net.Listen("tcp", grpcAddr)
+		if err != nil {
+			return err
+		}
+		g := srv.NewGRPC()
+		defer g.GracefulStop()
+		go func() { errc <- g.Serve(gl) }()
+		log.Info("grpc listening", "addr", gl.Addr().String())
+	}
 
 	select {
 	case err := <-errc:
