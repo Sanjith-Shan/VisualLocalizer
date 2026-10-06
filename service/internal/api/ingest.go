@@ -119,6 +119,10 @@ func (s *Server) putMap(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	if err := s.engine.CheckSize(head, int64(size)); err != nil {
+		reject(http.StatusUnprocessableEntity, CodeBadMapHeader, err.Error())
+		return
+	}
 	// Load from the temp path first: a map that fails to load never replaces the
 	// serving one, on disk or in memory.
 	h, prev, err := s.LoadFile(name, tmp.Name())

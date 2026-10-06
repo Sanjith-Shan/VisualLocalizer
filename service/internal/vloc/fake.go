@@ -59,6 +59,13 @@ func (e *FakeEngine) CheckHeader(head []byte) error {
 	return nil
 }
 
+func (e *FakeEngine) CheckSize(head []byte, size int64) error {
+	if size < 48+64 {
+		return fmt.Errorf("file is %d bytes, too short for a fake map", size)
+	}
+	return nil
+}
+
 func (e *FakeEngine) Load(path string) (Map, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {

@@ -31,8 +31,23 @@ const (
 
 // Pose is camera-to-world: q rotates camera axes into map axes, t is the camera center.
 type Pose struct {
-	Q struct{ W, X, Y, Z float64 } `json:"q"`
-	T struct{ X, Y, Z float64 }    `json:"t"`
+	Q Quat `json:"q"`
+	T Vec3 `json:"t"`
+}
+
+// Quat is a unit quaternion, scalar first.
+type Quat struct {
+	W float64 `json:"w"`
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	Z float64 `json:"z"`
+}
+
+// Vec3 is a position in map coordinates, meters.
+type Vec3 struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	Z float64 `json:"z"`
 }
 
 // Timings are in milliseconds. decode..pose come from the core; queue is admission

@@ -23,6 +23,8 @@ func (CgoEngine) Name() string { return "cgo" }
 
 func (CgoEngine) CheckHeader(head []byte) error { return checkCoreHeader(head) }
 
+func (CgoEngine) CheckSize(head []byte, size int64) error { return checkCoreSize(head, size) }
+
 func (CgoEngine) Load(path string) (Map, error) {
 	cpath := C.CString(path)
 	defer C.free(unsafe.Pointer(cpath))

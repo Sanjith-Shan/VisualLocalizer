@@ -73,13 +73,13 @@ type Engine interface {
 	// CheckHeader validates the first bytes of a map file before the whole file is
 	// loaded, so a wrong upload fails fast with a clear reason.
 	CheckHeader(head []byte) error
+	// CheckSize validates the full file size against the header, after upload.
+	CheckSize(head []byte, size int64) error
 	Load(path string) (Map, error)
 }
 
 // HeaderLen is how many leading bytes CheckHeader wants to see.
-const HeaderLen = 64
-
-var errEmpty = errors.New("empty map file")
+const HeaderLen = 184
 
 // Available reports whether the cgo engine was compiled in (build tag vloc).
 var Available = false
