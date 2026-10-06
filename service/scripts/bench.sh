@@ -8,6 +8,15 @@ ROOT=$(cd .. && pwd)
 NAME=$1; SFLAGS=$2; LFLAGS=$3
 PORT=${PORT:-18091}
 mkdir -p "$ROOT/results/service" "$ROOT/results/raw/service"
+# The host is shared. Wait (up to 30 min) until no core eval or map build is running and
+# the 1-minute load average is under LOAD_MAX, so a run measures the service, not a
+# neighbour. The load average at each rate is stored in the results either way.
+LOAD_MAX=${LOAD_MAX:-8}
+for _ in $(seq 360); do
+  l1=$(sysctl -n vm.loadavg | awk '{print int($2)}')
+  if ! pgrep -f 'vloc_eval|vloc_build' >/dev/null && [ "$l1" -lt "$LOAD_MAX" ]; then break; fi
+  sleep 5
+done
 VLOC_CV_THREADS=1 ./bin/vlocd-core -engine cgo -addr 127.0.0.1:$PORT -map-dir "$(mktemp -d)" \
   -map heads="$ROOT/results/maps/heads.vmap" $SFLAGS 2>"$ROOT/results/raw/service/$NAME.log" &
 PID=$!

@@ -1,0 +1,199 @@
+openapi: 3.0.3
+info:
+  title: VisualLocalizer positioning service
+  version: 1.0.0
+  description: |
+    Send a photo, get the camera's 6-DoF pose in a prebuilt 3D map.
+    Poses are camera-to-world: `q` rotates camera axes into map axes (unit quaternion,
+    scalar first) and `t` is the camera center in map coordinates, meters.
+    Every response carries `X-Request-Id` (an inbound valid value is kept).
+    Errors share one JSON shape with a stable `code`.
+servers:
+  - url: http://127.0.0.1:8080
+paths:
+  /v1/maps/{name}/localize:
+    post:
+      summary: Localize one image against a loaded map
+      parameters:
+        - $ref: '#/components/parameters/MapName'
+        - {name: fx, in: query, schema: {type: number}, description: Focal length x in pixels. Required unless X-Intrinsics is set.}
+        - {name: fy, in: query, schema: {type: number}}
+        - {name: cx, in: query, schema: {type: number}, description: Principal point x, must lie inside the image.}
+        - {name: cy, in: query, schema: {type: number}}
+        - name: X-Intrinsics
+          in: header
+          schema: {type: string, example: "525,525,320,240"}
+          description: Alternative to the query parameters, "fx,fy,cx,cy".
+        - name: X-Deadline-Ms
+          in: header
+          schema: {type: number, example: 1000}
+          description: Remaining time budget in milliseconds. Default 2000, capped at 30000. A request that cannot finish inside it is rejected up front with 503.
+        - {name: deadline_ms, in: query, schema: {type: number}, description: Same as X-Deadline-Ms.}
+        - {name: X-Request-Id, in: header, schema: {type: string, pattern: '^[A-Za-z0-9._-]{1,64}$'}}
+      requestBody:
+        required: true
+        description: JPEG or PNG bytes, at most 8 MiB by default, each side 32 to 4096 px. The type is sniffed from the bytes; Content-Type is not trusted.
+        content:
+          image/jpeg: {schema: {type: string, format: binary}}
+          image/png: {schema: {type: string, format: binary}}
+      responses:
+        '200':
+          description: The core ran. `ok` false means no pose was found (reason says why).
+          headers:
+            Server-Timing: {schema: {type: string}, description: queue, core and service durations}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LocalizeResponse'}
+        '400': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+        '415': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '500': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Overloaded'}
+        '504': {$ref: '#/components/responses/Error'}
+  /v1/maps/{name}:
+    put:
+      summary: Upload a map file and load it, replacing any map of that name atomically
+      description: |
+        The header (magic, version, counts) is checked before the body is stored, and the
+        file size is checked against the header after. The map is loaded from a temporary
+        file; only a map that loads replaces the serving one. Requests already running on
+        the old map finish on it, and it is freed after the last of them.
+      parameters: [{$ref: '#/components/parameters/MapName'}]
+      requestBody:
+        required: true
+        content:
+          application/octet-stream: {schema: {type: string, format: binary}}
+      responses:
+        '200': {description: Replaced an existing map, content: {application/json: {schema: {$ref: '#/components/schemas/PutMapResponse'}}}}
+        '201': {description: Loaded a new map, content: {application/json: {schema: {$ref: '#/components/schemas/PutMapResponse'}}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+    delete:
+      summary: Unload a map (freed after its in-flight requests finish)
+      parameters: [{$ref: '#/components/parameters/MapName'}]
+      responses:
+        '204': {description: Deleted}
+        '404': {$ref: '#/components/responses/Error'}
+  /v1/maps:
+    get:
+      summary: List loaded maps
+      responses:
+        '200':
+          description: Loaded maps sorted by name
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  maps: {type: array, items: {$ref: '#/components/schemas/MapEntry'}}
+  /healthz:
+    get:
+      summary: Liveness. 200 while the process serves HTTP.
+      responses: {'200': {description: alive}}
+  /readyz:
+    get:
+      summary: Readiness. 200 once at least one map is loaded and the server is not draining.
+      responses:
+        '200': {description: ready}
+        '503': {description: no maps loaded, or draining for shutdown}
+  /metrics:
+    get:
+      summary: Prometheus metrics (text exposition format)
+      responses: {'200': {description: metrics, content: {text/plain: {schema: {type: string}}}}}
+components:
+  parameters:
+    MapName:
+      name: name
+      in: path
+      required: true
+      schema: {type: string, pattern: '^[a-z0-9][a-z0-9_-]{0,63}$'}
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Overloaded:
+      description: Shed by admission control (OVERLOADED) or shutting down (SHUTTING_DOWN)
+      headers:
+        Retry-After: {schema: {type: integer}, description: Seconds, from the estimated queue wait, at least 1}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+  schemas:
+    Error:
+      type: object
+      required: [error, request_id]
+      properties:
+        request_id: {type: string}
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [BAD_MAP_NAME, MAP_NOT_FOUND, EMPTY_BODY, IMAGE_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE,
+                     BAD_IMAGE, BAD_IMAGE_SIZE, MISSING_INTRINSICS, BAD_INTRINSICS, BAD_DEADLINE,
+                     OVERLOADED, DEADLINE_EXCEEDED, SHUTTING_DOWN, CORE_ERROR, MAP_TOO_LARGE,
+                     BAD_MAP_HEADER, MAP_LOAD_FAILED, INTERNAL]
+            message: {type: string}
+    LocalizeResponse:
+      type: object
+      properties:
+        request_id: {type: string}
+        map: {type: string}
+        map_version: {type: integer, description: Increments on every load; shows which map a request ran on across a hot swap}
+        ok: {type: boolean}
+        reason: {type: string, description: Why no pose was found, when ok is false}
+        pose:
+          type: object
+          properties:
+            q: {type: object, properties: {w: {type: number}, x: {type: number}, y: {type: number}, z: {type: number}}}
+            t: {type: object, properties: {x: {type: number}, y: {type: number}, z: {type: number}}}
+        num_keypoints: {type: integer}
+        num_matches: {type: integer}
+        num_inliers: {type: integer}
+        image_width: {type: integer}
+        image_height: {type: integer}
+        timings_ms:
+          type: object
+          description: decode, extract, match and pose are the core's own stage times; core is their sum; queue is admission wait; worker is the cgo call as seen from Go; service is the handler's wall time; overhead is service minus core.
+          properties:
+            queue: {type: number}
+            decode: {type: number}
+            extract: {type: number}
+            match: {type: number}
+            pose: {type: number}
+            core: {type: number}
+            worker: {type: number}
+            service: {type: number}
+            overhead: {type: number}
+    MapInfo:
+      type: object
+      properties:
+        num_points: {type: integer}
+        descriptor_dim: {type: integer}
+        feature: {type: string}
+        name: {type: string}
+    MapEntry:
+      type: object
+      properties:
+        name: {type: string}
+        version: {type: integer}
+        bytes: {type: integer}
+        loaded_at: {type: string, format: date-time}
+        load_ms: {type: number}
+        in_use: {type: integer, description: Requests currently holding this map}
+        map: {$ref: '#/components/schemas/MapInfo'}
+    PutMapResponse:
+      type: object
+      properties:
+        name: {type: string}
+        version: {type: integer}
+        previous_version: {type: integer}
+        bytes: {type: integer}
+        load_ms: {type: number}
+        map: {$ref: '#/components/schemas/MapInfo'}
