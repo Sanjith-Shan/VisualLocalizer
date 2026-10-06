@@ -1,0 +1,10 @@
+build/
+*.o
+*.a
+*.dylib
+*.so
+/data/
+results/raw/
+.venv/
+__pycache__/
+*.vmap
