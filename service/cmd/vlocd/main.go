@@ -33,7 +33,7 @@ func main() {
 		engineName = flag.String("engine", "auto", "auto, cgo or fake (auto = cgo when built with -tags vloc)")
 		fakeWork   = flag.Duration("fake-work", 20*time.Millisecond, "CPU time the fake engine burns per request")
 		mapDir     = flag.String("map-dir", "maps", "directory for ingested maps; every *.vmap in it loads at startup")
-		workers    = flag.Int("workers", 0, "worker threads (default: number of CPUs)")
+		workers    = flag.Int("workers", 0, "worker threads (default: performance cores on Apple silicon, else CPUs - 1)")
 		queue      = flag.Int("queue", 0, "max queued requests (default: 4 x workers)")
 		noShed     = flag.Bool("no-deadline-shed", false, "disable deadline-aware admission (queue limit only)")
 		defDL      = flag.Duration("default-deadline", 2*time.Second, "deadline when the client sends none")
@@ -86,6 +86,9 @@ func run(log *slog.Logger, addr, engineName string, fakeWork time.Duration, mapD
 	}
 	defer shutdownTrace(context.Background())
 
+	if workers <= 0 {
+		workers = defaultWorkers()
+	}
 	pool := admit.New(admit.Config{Workers: workers, MaxQueue: queue, NoDeadlineShed: noShed})
 	srv := api.New(api.Config{MaxImageBytes: maxImg, MaxMapBytes: maxMap, DefaultDeadline: defDL, MapDir: mapDir},
 		api.Deps{Engine: engine, Pool: pool, Tracer: tracer, Log: log})

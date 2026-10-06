@@ -1,0 +1,45 @@
+{
+  "command": "./bin/vlocload -url http://127.0.0.1:18091 -rates 150 -duration 15s -warmup 3s -deadline-ms 1000 -label workers_6; vlocd -workers 6 -log-level warn -out /Users/sanjithshanmugavel/Documents/VisualLocalizer/results/service/workers_6.json",
+  "deadline_ms": 1000,
+  "frames": 300,
+  "label": "workers_6; vlocd -workers 6 -log-level warn",
+  "latency_note": "latency_ms fields are client-side, from scheduled send time to full response, over 200 responses only",
+  "map": "heads",
+  "runs": [
+    {
+      "offered_rps": 150,
+      "duration_s": 15,
+      "sent": 2249,
+      "ok": 826,
+      "ok_no_pose": 81,
+      "shed_503": 1423,
+      "timeout_504": 0,
+      "other_error": 0,
+      "client_dropped": 0,
+      "throughput_ok_rps": 55.067,
+      "shed_rate": 0.633,
+      "error_rate": 0,
+      "p50_ms": 520.29,
+      "p95_ms": 756.919,
+      "p99_ms": 809.169,
+      "max_ms": 914.322,
+      "shed_p50_ms": 1.237,
+      "core_p50_ms": 90.116,
+      "server_service_p50_ms": 519.104,
+      "server_queue_p50_ms": 405.405,
+      "server_queue_p99_ms": 700.577,
+      "client_minus_core_p50_ms": 411.184,
+      "server_minus_core_p50_ms": 407.76
+    }
+  ],
+  "scene": "heads",
+  "server": {
+    "engine": "cgo",
+    "maps": 1,
+    "status": "ready"
+  },
+  "time": "2026-10-06T18:23:50Z",
+  "tool": "vlocload",
+  "url": "http://127.0.0.1:18091",
+  "warmup_s": 3
+}

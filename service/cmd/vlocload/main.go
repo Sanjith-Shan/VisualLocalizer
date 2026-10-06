@@ -17,6 +17,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -65,6 +66,10 @@ type Stats struct {
 	QueueP99Ms    float64        `json:"server_queue_p99_ms"`
 	ClientOverP50 float64        `json:"client_minus_core_p50_ms"`
 	ServerOverP50 float64        `json:"server_minus_core_p50_ms"`
+	ServiceP99    float64        `json:"server_service_p99_ms"`
+	ServiceMax    float64        `json:"server_service_max_ms"`
+	LoadAvgStart  string         `json:"host_loadavg_start"`
+	LoadAvgEnd    string         `json:"host_loadavg_end"`
 	ErrorCodes    map[string]int `json:"error_codes,omitempty"`
 }
 
@@ -226,12 +231,26 @@ func (r *runner) run(rate float64, warmup, dur time.Duration) Stats {
 	st.P50Ms, st.P95Ms, st.P99Ms, st.MaxMs = round(pct(okLat, 50)), round(pct(okLat, 95)), round(pct(okLat, 99)), round(pct(okLat, 100))
 	st.ShedP50Ms = round(pct(shedLat, 50))
 	st.CoreP50Ms, st.ServiceP50Ms = round(pct(core, 50)), round(pct(svc, 50))
+	st.ServiceP99, st.ServiceMax = round(pct(svc, 99)), round(pct(svc, 100))
 	st.QueueP50Ms, st.QueueP99Ms = round(pct(queue, 50)), round(pct(queue, 99))
 	st.ClientOverP50, st.ServerOverP50 = round(pct(cOver, 50)), round(pct(sOver, 50))
 	if len(st.ErrorCodes) == 0 {
 		st.ErrorCodes = nil
 	}
 	return st
+}
+
+// loadAvg records the host's load average so a noisy run can be recognized later
+// (the benchmark host is shared with other work).
+func loadAvg() string {
+	b, err := exec.Command("sysctl", "-n", "vm.loadavg").Output()
+	if err != nil {
+		b, err = os.ReadFile("/proc/loadavg")
+		if err != nil {
+			return ""
+		}
+	}
+	return strings.Trim(strings.TrimSpace(string(b)), "{} ")
 }
 
 func main() {
@@ -278,7 +297,7 @@ func main() {
 		}
 	}
 	fmt.Fprintf(os.Stderr, "%d frames (%.0f KB avg) from %s/%s/test\n", len(frames), float64(bytesTotal)/float64(len(frames))/1024, *data, *scene)
-	fmt.Fprintf(os.Stderr, "%8s %8s %7s %7s %8s %8s %8s %8s %8s\n", "offered", "ok/s", "shed", "err", "p50", "p95", "p99", "core50", "over50")
+	fmt.Fprintf(os.Stderr, "%8s %8s %7s %7s %8s %8s %8s %8s %8s %8s %6s\n", "offered", "ok/s", "shed", "err", "p50", "p95", "p99", "core50", "over50", "srv99", "load")
 	var results []Stats
 	for i, f := range strings.Split(*rates, ",") {
 		rate, err := strconv.ParseFloat(strings.TrimSpace(f), 64)
@@ -289,10 +308,12 @@ func main() {
 		if i > 0 {
 			time.Sleep(*pause)
 		}
+		la0 := loadAvg()
 		st := r.run(rate, *warmup, *dur)
+		st.LoadAvgStart, st.LoadAvgEnd = la0, loadAvg()
 		results = append(results, st)
-		fmt.Fprintf(os.Stderr, "%8.1f %8.1f %6.1f%% %6.1f%% %8.1f %8.1f %8.1f %8.1f %8.1f\n", st.OfferedRPS, st.ThroughputRPS,
-			100*st.ShedRate, 100*st.ErrorRate, st.P50Ms, st.P95Ms, st.P99Ms, st.CoreP50Ms, st.ClientOverP50)
+		fmt.Fprintf(os.Stderr, "%8.1f %8.1f %6.1f%% %6.1f%% %8.1f %8.1f %8.1f %8.1f %8.1f %8.1f %6s\n", st.OfferedRPS, st.ThroughputRPS,
+			100*st.ShedRate, 100*st.ErrorRate, st.P50Ms, st.P95Ms, st.P99Ms, st.CoreP50Ms, st.ClientOverP50, st.ServiceP99, strings.Fields(st.LoadAvgStart + " -")[0])
 	}
 	if *out != "" {
 		doc := map[string]any{

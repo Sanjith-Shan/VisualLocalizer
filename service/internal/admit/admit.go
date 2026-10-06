@@ -73,6 +73,7 @@ type Pool struct {
 	q        chan *job
 	inflight atomic.Int64
 	svcNs    atomic.Int64 // EWMA of fn run time
+	devNs    atomic.Int64 // EWMA of |run time - mean|
 	wg       sync.WaitGroup
 	closeMu  sync.RWMutex
 	closed   bool
@@ -117,13 +118,25 @@ func (p *Pool) worker() {
 
 func (p *Pool) observe(d time.Duration) {
 	const alpha = 0.1
-	for {
-		old := p.svcNs.Load()
-		nv := int64(alpha*float64(d) + (1-alpha)*float64(old))
-		if p.svcNs.CompareAndSwap(old, nv) {
-			return
+	ewma := func(v *atomic.Int64, x float64) {
+		for {
+			old := v.Load()
+			if v.CompareAndSwap(old, int64(alpha*x+(1-alpha)*float64(old))) {
+				return
+			}
 		}
 	}
+	mean := p.svcNs.Load()
+	ewma(&p.svcNs, float64(d))
+	ewma(&p.devNs, math.Abs(float64(d)-float64(mean)))
+}
+
+// ownBudget is the service time a newly admitted job must still have room for after
+// its queue wait: the mean plus two mean deviations, because run times vary (frame
+// content, and on hybrid CPUs whether the worker lands on a fast or slow core) and the
+// admission promise is about the job's own tail, not the average job.
+func (p *Pool) ownBudget() time.Duration {
+	return time.Duration(p.svcNs.Load() + 2*p.devNs.Load())
 }
 
 // Workers is the pool size.
@@ -157,7 +170,7 @@ func (p *Pool) Do(ctx context.Context, fn func()) (Stats, error) {
 		p.closeMu.RUnlock()
 		return Stats{}, &Rejection{Err: ErrClosed, RetryAfter: time.Second}
 	}
-	svc := time.Duration(p.svcNs.Load())
+	svc := p.ownBudget()
 	wait := p.EstimateWait()
 	if dl, ok := ctx.Deadline(); ok && !p.cfg.NoDeadlineShed {
 		if time.Until(dl) < wait+svc {
