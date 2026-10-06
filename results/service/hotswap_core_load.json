@@ -1,0 +1,49 @@
+{
+  "command": "./bin/vlocload -url http://127.0.0.1:18092 -rates 20 -duration 25s -warmup 1s -deadline-ms 5000 -label hot swap: 10 PUTs during the run -out /Users/sanjithshanmugavel/Documents/VisualLocalizer/results/service/hotswap_core_load.json",
+  "deadline_ms": 5000,
+  "frames": 300,
+  "label": "hot swap: 10 PUTs during the run",
+  "latency_note": "latency_ms fields are client-side, from scheduled send time to full response, over 200 responses only",
+  "map": "heads",
+  "runs": [
+    {
+      "offered_rps": 20,
+      "duration_s": 25,
+      "sent": 500,
+      "ok": 500,
+      "ok_no_pose": 0,
+      "shed_503": 0,
+      "timeout_504": 0,
+      "other_error": 0,
+      "client_dropped": 0,
+      "throughput_ok_rps": 20,
+      "shed_rate": 0,
+      "error_rate": 0,
+      "p50_ms": 95.991,
+      "p95_ms": 158.626,
+      "p99_ms": 197.175,
+      "max_ms": 210.916,
+      "shed_p50_ms": 0,
+      "core_p50_ms": 94.961,
+      "server_service_p50_ms": 95.074,
+      "server_queue_p50_ms": 0.009,
+      "server_queue_p99_ms": 0.425,
+      "client_minus_core_p50_ms": 1.466,
+      "server_minus_core_p50_ms": 0.103,
+      "server_service_p99_ms": 194.155,
+      "server_service_max_ms": 208.104,
+      "host_loadavg_start": "8.61 14.82 31.09",
+      "host_loadavg_end": "8.03 14.19 30.39"
+    }
+  ],
+  "scene": "heads",
+  "server": {
+    "engine": "cgo",
+    "maps": 1,
+    "status": "ready"
+  },
+  "time": "2026-10-06T19:16:51Z",
+  "tool": "vlocload",
+  "url": "http://127.0.0.1:18092",
+  "warmup_s": 1
+}

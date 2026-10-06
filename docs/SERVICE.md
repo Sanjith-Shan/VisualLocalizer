@@ -40,18 +40,69 @@ Client p50 / p95 / p99: 100.3 / 128.0 / 147.1 ms.
 Command: `service/scripts/bench.sh overhead_5rps "-log-level warn" "-rates 5 -duration 30s -warmup 3s -deadline-ms 1000"`.
 Result: `results/service/overhead_5rps.json`.
 
-### Capacity sweep: INTERIM
+### Capacity and shedding
 
-The full sweep (`SKIP_OVERHEAD=1 service/scripts/sweep.sh`, shedding on vs off up to 2x
-capacity) has not produced a clean run yet: the host was saturated by other work (map
-builds and evaluations at 700 to 950% CPU, load average 40 to 97) each time, and the
-bench script now refuses to measure on a busy host. The only clean points so far are the
-low rates of a run whose upper rates were contaminated and which also exposed the
-admission bug fixed since (`results/service/sweep_shed_on_spiral.json`, BUG_LOG Service 1):
-10 req/s gave p50 101 ms, p99 187 ms, no shedding; 30 req/s gave p50 98 ms, p99 256 ms,
-no shedding (host load 3.8 to 6.8). With a 99 ms median core call on 6 workers the
-expected ceiling is about 60 req/s; that is not yet measured.
+Open-loop replay of 300 heads test frames, 1 s client deadline, 6 workers, default queue
+(24), 15 s measured per rate after a 3 s warmup. Host load average 4.8 to 12 during the run
+(the server's own 6 busy workers count toward it).
+Command: `SKIP_OVERHEAD=1 service/scripts/sweep.sh`.
+Results: `results/service/sweep_shed_on.json`, `results/service/sweep_shed_off.json`.
 
+**Capacity is about 60 req/s.** Past it, completed throughput stays flat at 55 to 61 ok/s
+however much more is offered. This matches 6 workers at a 96 to 103 ms median core call.
+
+With deadline-aware admission (the default):
+
+| Offered req/s | Fraction of capacity | ok/s | Shed | p50 ms | p95 ms | p99 ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 10 | 0.17 | 10.0 | 0% | 101 | 126 | 131 |
+| 20 | 0.33 | 20.0 | 0% | 91 | 120 | 141 |
+| 30 | 0.5 | 29.9 | 0% | 94 | 124 | 150 |
+| 40 | 0.67 | 39.7 | 0.8% | 99 | 275 | 366 |
+| 50 | 0.83 | 50.0 | 0% | 103 | 179 | 231 |
+| 60 | 1.0 | 55.5 | 7.3% | 316 | 721 | 865 |
+| 70 | 1.17 | 60.1 | 14% | 460 | 588 | 622 |
+| 90 | 1.5 | 54.9 | 39% | 497 | 810 | 1116 |
+| 120 | 2.0 | 60.6 | 49.5% | 483 | 583 | 623 |
+
+Latency is client side, from the scheduled send time, over 200 responses. Shed means a
+503 (or 504) returned in well under a millisecond of server time, with `Retry-After`.
+Almost all shedding came from the queue limit (1775 requests). 157 more were refused
+because they would miss their deadline, and 1 expired in the queue.
+
+The same past-capacity loads with admission off (`-no-deadline-shed -queue 100000`, 30 s
+client deadline so nothing is dropped):
+
+| Offered req/s | Fraction of capacity | Shed | p50 ms | p95 ms | p99 ms |
+| --- | --- | --- | --- | --- | --- |
+| 50 | 0.83 | 0% | 99 | 155 | 168 |
+| 60 | 1.0 | 0% | 274 | 783 | 807 |
+| 90 | 1.5 | 0% | 5555 | 8566 | 8803 |
+| 120 | 2.0 | 0% | 10543 | 17813 | 18474 |
+
+At 2x capacity, shedding keeps p99 at 623 ms, inside the 1 s deadline, while serving about
+the same 60 ok/s that the hardware allows. Without it every request is eventually served,
+but the queue grows for as long as the overload lasts: p50 10.5 s, p99 18.5 s after only 18
+s of overload. Those numbers keep growing with the length of the overload. In the
+shedding-off table `ok/s` is left out on purpose. vlocload counts requests scheduled inside
+the window that completed at any time, including after the window ends, so it shows about
+the offered rate there and says nothing about sustained throughput.
+
+Caveats on these numbers:
+- At 90 req/s p99 was 1116 ms, past the 1 s deadline. The admission estimate is an EWMA, so
+  some admitted calls still overrun when run time shifts quickly. Bounded, but not a hard
+  guarantee.
+- The 40 req/s row has a worse tail than the 50 req/s row. That is noise on a shared host,
+  not a trend.
+
+### Hot swap on the real core
+
+At 20 req/s for 25 s, the heads map was re-uploaded through `PUT /v1/maps/heads` 10 times,
+1.5 s apart. All 10 PUTs returned 200 and all 500 requests returned 200. Nothing was shed,
+timed out or failed (p50 96 ms, p99 197 ms). Metrics show 10 swaps and 10 frees, so every
+replaced map was freed after its last request, and the current map stayed live.
+Command: `service/scripts/hotswap.sh`. Results: `results/service/hotswap_core.json`,
+`results/service/hotswap_core_load.json`.
 
 ## API
 

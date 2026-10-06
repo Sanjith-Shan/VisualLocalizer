@@ -1,0 +1,27 @@
+{
+  "command": "service/scripts/hotswap.sh",
+  "put_status_codes": [
+    "200",
+    "200",
+    "200",
+    "200",
+    "200",
+    "200",
+    "200",
+    "200",
+    "200",
+    "200"
+  ],
+  "map_events": {
+    "loaded": "1",
+    "swapped": "10",
+    "freed": "10"
+  },
+  "requests_sent": 500,
+  "ok": 500,
+  "shed": 0,
+  "timeouts": 0,
+  "other_errors": 0,
+  "p50_ms": 95.991,
+  "p99_ms": 197.175
+}
