@@ -16,6 +16,8 @@ import (
 	"syscall"
 	"time"
 
+	"google.golang.org/grpc"
+
 	"github.com/Sanjith-Shan/VisualLocalizer/service/internal/admit"
 	"github.com/Sanjith-Shan/VisualLocalizer/service/internal/api"
 	"github.com/Sanjith-Shan/VisualLocalizer/service/internal/obs"
@@ -120,13 +122,13 @@ func run(log *slog.Logger, addr, grpcAddr, engineName string, fakeWork time.Dura
 		"maps", srv.Maps.Len(), "trace", traceMode)
 	errc := make(chan error, 2)
 	go func() { errc <- hs.Serve(ln) }()
+	var g *grpc.Server
 	if grpcAddr != "" {
 		gl, err := net.Listen("tcp", grpcAddr)
 		if err != nil {
 			return err
 		}
-		g := srv.NewGRPC()
-		defer g.GracefulStop()
+		g = srv.NewGRPC()
 		go func() { errc <- g.Serve(gl) }()
 		log.Info("grpc listening", "addr", gl.Addr().String())
 	}
@@ -141,6 +143,9 @@ func run(log *slog.Logger, addr, grpcAddr, engineName string, fakeWork time.Dura
 	sctx, cancel := context.WithTimeout(context.Background(), grace)
 	defer cancel()
 	err = hs.Shutdown(sctx)
+	if g != nil {
+		g.GracefulStop() // let in-flight RPCs finish before the pool closes
+	}
 	pool.Close()
 	srv.Maps.Close()
 	return err

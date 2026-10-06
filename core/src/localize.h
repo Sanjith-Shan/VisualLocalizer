@@ -28,6 +28,7 @@ struct LocalizeParams {
   double ratio = 0.9;             // Lowe ratio test, first vs second distinct 3D point
   int knn = 3;                    // neighbours fetched per query descriptor
   int checks = 64;                // kd-forest leaves visited per query
+  int match_budget = 0;           // 0 = match every feature; else stop after this many
   int max_matches = 0;            // 0 = all; else keep the best by ratio (prioritised)
   double ransac_px = 12.0;        // inlier threshold, pixels
   int ransac_iters = 5000;

@@ -8,3 +8,4 @@ results/raw/
 .venv/
 __pycache__/
 *.vmap
+core/build-dev/

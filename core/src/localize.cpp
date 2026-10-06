@@ -33,35 +33,51 @@ struct Match2D3D {
 
 // 2D-to-3D: every query descriptor searches the kd-forest. The second neighbour for the
 // ratio test is the nearest descriptor of a different 3D point.
-std::vector<Match2D3D> match_2d3d(const Map& map, const cv::Mat& qdesc, const LocalizeParams& p) {
+std::vector<Match2D3D> match_2d3d(const Map& map, const cv::Mat& qdesc, const std::vector<cv::KeyPoint>& kps,
+                                  const LocalizeParams& p) {
   std::vector<Match2D3D> out;
   if (qdesc.empty() || !map.index) return out;
   const int k = std::max(2, std::min(p.knn, int(map.data.num_desc())));
-  cv::Mat idx(qdesc.rows, k, CV_32S), dst(qdesc.rows, k, CV_32F);
-  // cv::flann::Index::knnSearch is not const-qualified but the kd-tree search keeps all
-  // of its state on the stack, so concurrent searches on one index are safe (tested).
-  const_cast<cv::flann::Index&>(*map.index).knnSearch(qdesc, idx, dst, k, cv::flann::SearchParams(p.checks));
+  // Prioritised search (in the spirit of Active Search's early termination): visit query
+  // features strongest first, in chunks, and stop once `match_budget` matches are found.
+  std::vector<int> order(qdesc.rows);
+  std::iota(order.begin(), order.end(), 0);
+  const bool budgeted = p.match_budget > 0;
+  if (budgeted)
+    std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return kps[a].response > kps[b].response; });
+  const int chunk = budgeted ? 256 : qdesc.rows;
   std::unordered_map<uint32_t, size_t> best;  // point -> position in out
-  for (int i = 0; i < qdesc.rows; ++i) {
-    const int* ii = idx.ptr<int>(i);
-    const float* dd = dst.ptr<float>(i);  // squared L2
-    if (ii[0] < 0) continue;
-    const uint32_t p1 = map.data.desc_point[ii[0]];
-    float d2 = -1.f;
-    for (int j = 1; j < k; ++j) {
-      if (ii[j] < 0) break;
-      if (map.data.desc_point[ii[j]] != p1) { d2 = dd[j]; break; }
-    }
-    if (d2 <= 0.f) continue;
-    const float ratio = std::sqrt(dd[0] / d2);
-    if (ratio > p.ratio) continue;
-    Match2D3D m{i, p1, std::sqrt(dd[0]), ratio};
-    auto it = best.find(p1);
-    if (it == best.end()) {
-      best.emplace(p1, out.size());
-      out.push_back(m);
-    } else if (m.dist < out[it->second].dist) {
-      out[it->second] = m;
+  for (int c0 = 0; c0 < qdesc.rows; c0 += chunk) {
+    if (budgeted && int(out.size()) >= p.match_budget) break;
+    const int n = std::min(chunk, qdesc.rows - c0);
+    cv::Mat q(n, qdesc.cols, CV_32F);
+    for (int r = 0; r < n; ++r) qdesc.row(order[c0 + r]).copyTo(q.row(r));
+    cv::Mat idx(n, k, CV_32S), dst(n, k, CV_32F);
+    // cv::flann::Index::knnSearch is not const-qualified but the kd-tree search keeps all
+    // of its state on the stack, so concurrent searches on one index are safe (tested).
+    const_cast<cv::flann::Index&>(*map.index).knnSearch(q, idx, dst, k, cv::flann::SearchParams(p.checks));
+    for (int r = 0; r < n; ++r) {
+      const int i = order[c0 + r];
+      const int* ii = idx.ptr<int>(r);
+      const float* dd = dst.ptr<float>(r);  // squared L2
+      if (ii[0] < 0) continue;
+      const uint32_t p1 = map.data.desc_point[ii[0]];
+      float d2 = -1.f;
+      for (int j = 1; j < k; ++j) {
+        if (ii[j] < 0) break;
+        if (map.data.desc_point[ii[j]] != p1) { d2 = dd[j]; break; }
+      }
+      if (d2 <= 0.f) continue;
+      const float ratio = std::sqrt(dd[0] / d2);
+      if (ratio > p.ratio) continue;
+      Match2D3D m{i, p1, std::sqrt(dd[0]), ratio};
+      auto it = best.find(p1);
+      if (it == best.end()) {
+        best.emplace(p1, out.size());
+        out.push_back(m);
+      } else if (m.dist < out[it->second].dist) {
+        out[it->second] = m;
+      }
     }
   }
   if (p.max_matches > 0 && int(out.size()) > p.max_matches) {
@@ -279,7 +295,7 @@ void localize_gray(const Map& map, const cv::Mat& gray, const vloc_intrinsics& K
   out->ms_extract = ms_since(t0);
 
   t0 = Clock::now();
-  std::vector<Match2D3D> matches = match_2d3d(map, qdesc, p);
+  std::vector<Match2D3D> matches = match_2d3d(map, qdesc, kps, p);
   out->num_matches = int(matches.size());
   out->ms_match = ms_since(t0);
 

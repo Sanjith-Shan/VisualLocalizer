@@ -51,6 +51,7 @@ bool parse(int argc, char** argv, Args* a) {
     else if (k == "--checks") a->p.checks = std::atoi(next());
     else if (k == "--max-features") a->p.feat.max_features = std::atoi(next());
     else if (k == "--contrast") a->p.feat.contrast_threshold = std::atof(next());
+    else if (k == "--match-budget") a->p.match_budget = std::atoi(next());
     else if (k == "--max-matches") a->p.max_matches = std::atoi(next());
     else if (k == "--ransac-px") a->p.ransac_px = std::atof(next());
     else if (k == "--ransac-iters") a->p.ransac_iters = std::atoi(next());

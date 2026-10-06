@@ -21,7 +21,7 @@ import sys
 import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BUILD = os.path.join(ROOT, "core", "build")
+BUILD = os.environ.get("VLOC_BUILD_DIR", os.path.join(ROOT, "core", "build"))
 
 
 def main():
