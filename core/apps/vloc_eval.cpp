@@ -24,7 +24,8 @@ namespace {
 struct Args {
   std::string map, scene_dir, split = "test", csv, summary;
   int threads = 4;
-  int val_every = 0;  // with --split train: only validation queries
+  int val_every = 0;
+  int val_offset = 0;
   int limit = 0;
   int stride = 1;
   bool use_c_abi = false;
@@ -42,12 +43,14 @@ bool parse(int argc, char** argv, Args* a) {
     else if (k == "--summary") a->summary = next();
     else if (k == "--threads") a->threads = std::atoi(next());
     else if (k == "--val-every") a->val_every = std::atoi(next());
+    else if (k == "--val-offset") a->val_offset = std::atoi(next());
     else if (k == "--limit") a->limit = std::atoi(next());
     else if (k == "--stride") a->stride = std::max(1, std::atoi(next()));
     else if (k == "--c-abi") a->use_c_abi = true;
     else if (k == "--ratio") a->p.ratio = std::atof(next());
     else if (k == "--checks") a->p.checks = std::atoi(next());
     else if (k == "--max-features") a->p.feat.max_features = std::atoi(next());
+    else if (k == "--contrast") a->p.feat.contrast_threshold = std::atof(next());
     else if (k == "--max-matches") a->p.max_matches = std::atoi(next());
     else if (k == "--ransac-px") a->p.ransac_px = std::atof(next());
     else if (k == "--ransac-iters") a->p.ransac_iters = std::atoi(next());
@@ -85,7 +88,7 @@ int main(int argc, char** argv) {
   }
   std::vector<Frame> all = list_frames(a.scene_dir, a.split), frames;
   for (size_t i = 0; i < all.size(); ++i) {
-    if (a.split == "train" && !is_val_query(all[i], a.val_every)) continue;
+    if (a.split == "train" && !is_val_query(all[i], a.val_every, a.val_offset)) continue;
     if (i % a.stride) continue;
     frames.push_back(all[i]);
   }

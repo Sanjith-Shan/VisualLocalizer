@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include <cmath>
+
 #include <opencv2/core.hpp>
 
 namespace vloc {
@@ -27,6 +29,17 @@ inline bool read_pose(const std::string& path, cv::Matx44d* T) {
     if (!(f >> (*T)(i / 4, i % 4))) return false;
   for (int i = 0; i < 16; ++i)
     if (!std::isfinite((*T)(i / 4, i % 4))) return false;
+  // The stored rotations are not exactly orthonormal (R^T R has diagonal near 0.9997).
+  // Left as is, acos((trace(R_est^T R_gt) - 1) / 2) reads that shrink as about 1.3 degrees
+  // of rotation error on every frame. Project onto SO(3) with an SVD.
+  cv::Matx33d R;
+  for (int r = 0; r < 3; ++r)
+    for (int c = 0; c < 3; ++c) R(r, c) = (*T)(r, c);
+  cv::SVD svd(cv::Mat(R), cv::SVD::FULL_UV);
+  cv::Mat Ro = svd.u * svd.vt;
+  if (cv::determinant(Ro) < 0) return false;
+  for (int r = 0; r < 3; ++r)
+    for (int c = 0; c < 3; ++c) (*T)(r, c) = Ro.at<double>(r, c);
   return true;
 }
 
@@ -66,11 +79,15 @@ inline std::vector<Frame> list_frames(const std::string& scene_dir, const std::s
 // Validation split on training data, used only for tuning: frames with pos % every == 0
 // are queries, and the map leaves out those frames and their immediate neighbours, so the
 // nearest map frame is at least two subsampled steps away.
-inline bool is_val_query(const Frame& f, int every) { return every > 0 && f.pos_in_seq % every == 0; }
-inline bool is_val_excluded(const Frame& f, int every) {
+// `offset` picks the fold, so folds 0..every-1 together use every training frame once.
+inline bool is_val_query(const Frame& f, int every, int offset = 0) {
+  return every > 0 && (f.pos_in_seq + offset) % every == 0;
+}
+// `gap` neighbours on each side of a query are also left out of the map.
+inline bool is_val_excluded(const Frame& f, int every, int offset = 0, int gap = 1) {
   if (every <= 0) return false;
-  int r = f.pos_in_seq % every;
-  return r == 0 || r == 1 || r == every - 1;
+  int r = (f.pos_in_seq + offset) % every;
+  return r <= gap || r >= every - gap;
 }
 
 }  // namespace vloc

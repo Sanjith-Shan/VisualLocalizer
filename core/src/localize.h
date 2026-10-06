@@ -14,7 +14,7 @@ namespace vloc {
 
 struct FeatureParams {
   int max_features = 4000;        // SIFT nfeatures (0 = unlimited)
-  double contrast_threshold = 0.04;
+  double contrast_threshold = 0.01;  // OpenCV default 0.04 gave ~460 kp/frame on 7-Scenes
   bool root_sift = true;          // Arandjelovic and Zisserman RootSIFT
 };
 
@@ -25,11 +25,11 @@ void extract_features(const cv::Mat& gray, const FeatureParams& p, std::vector<c
 
 struct LocalizeParams {
   FeatureParams feat;
-  double ratio = 0.8;             // Lowe ratio test, first vs second distinct 3D point
+  double ratio = 0.9;             // Lowe ratio test, first vs second distinct 3D point
   int knn = 3;                    // neighbours fetched per query descriptor
   int checks = 64;                // kd-forest leaves visited per query
   int max_matches = 0;            // 0 = all; else keep the best by ratio (prioritised)
-  double ransac_px = 8.0;         // inlier threshold, pixels
+  double ransac_px = 12.0;        // inlier threshold, pixels
   int ransac_iters = 5000;
   double ransac_conf = 0.9999;
   int min_inliers = 12;
@@ -37,7 +37,7 @@ struct LocalizeParams {
   bool active_search = true;      // 3D-to-2D search around the first pose
   double as_radius_px = 6.0;      // reprojection window for 3D-to-2D search
   double as_ratio = 0.8;          // ratio for 3D-to-2D search
-  int pnp = 0;                    // 0 = OpenCV RANSAC + AP3P, 1 = OpenCV USAC MAGSAC
+  int pnp = 1;                    // 0 = OpenCV RANSAC + AP3P, 1 = OpenCV USAC MAGSAC
 };
 
 // RANSAC PnP + refinement over given correspondences. rvec/tvec are world-to-camera.

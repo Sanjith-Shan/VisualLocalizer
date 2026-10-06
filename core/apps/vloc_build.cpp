@@ -31,20 +31,22 @@ using namespace vloc;
 namespace {
 
 struct Args {
-  std::string scene_dir, out, name, mode = "tri";
+  std::string scene_dir, out, name, mode = "depth";
   int window = 3;            // match frame i against i+1..i+window (subsampled steps)
   double match_ratio = 0.8;
   double epi_px = 3.0;       // Sampson distance bound against the GT relative pose
   double reproj_px = 4.0;    // max reprojection error of a triangulated observation
   double min_angle_deg = 2.0;
   int min_track = 2;
-  bool depth_singletons = false;
+  bool depth_singletons = true;
   int val_every = 0;         // >0: leave validation frames out of the map
+  int val_offset = 0;
+  int val_gap = 1;
   int threads = 0;
   int max_frames = 0;
   // Depth-to-color registration (depth camera fx=fy=585, cx=320, cy=240).
   double depth_f = 585.0, depth_cx = 320.0, depth_cy = 240.0;
-  double dc_tx = 0.0, dc_ty = 0.0, dc_tz = 0.0;  // depth camera origin in color camera frame, m
+  double dc_tx = -0.025, dc_ty = 0.0, dc_tz = 0.0;  // depth camera origin in color camera frame, m
   FeatureParams feat;
 };
 
@@ -62,9 +64,9 @@ int parse_int(const char* s) { return std::atoi(s); }
 
 void usage() {
   std::fprintf(stderr,
-               "usage: vloc_build --scene-dir DIR --out MAP.vmap [--name N] [--mode tri|depth|hybrid]\n"
+               "usage: vloc_build --scene-dir DIR --out MAP.vmap [--name N] [--mode depth|tri|hybrid]\n"
                "  [--window 3] [--match-ratio 0.8] [--epi-px 3] [--reproj-px 4] [--min-angle 2]\n"
-               "  [--min-track 2] [--depth-singletons] [--val-every N] [--threads T]\n"
+               "  [--min-track 2] [--no-depth-singletons] [--contrast 0.01] [--val-every N] [--threads T]\n"
                "  [--max-features 4000] [--no-rootsift] [--dc-tx M] [--dc-ty M] [--dc-tz M]\n");
 }
 
@@ -83,7 +85,10 @@ bool parse(int argc, char** argv, Args* a) {
     else if (k == "--min-angle") a->min_angle_deg = std::atof(next());
     else if (k == "--min-track") a->min_track = parse_int(next());
     else if (k == "--depth-singletons") a->depth_singletons = true;
+    else if (k == "--no-depth-singletons") a->depth_singletons = false;
     else if (k == "--val-every") a->val_every = parse_int(next());
+    else if (k == "--val-offset") a->val_offset = parse_int(next());
+    else if (k == "--val-gap") a->val_gap = parse_int(next());
     else if (k == "--threads") a->threads = parse_int(next());
     else if (k == "--max-frames") a->max_frames = parse_int(next());
     else if (k == "--max-features") a->feat.max_features = parse_int(next());
@@ -206,7 +211,7 @@ int main(int argc, char** argv) {
   std::vector<Frame> all = list_frames(a.scene_dir, "train");
   std::vector<Frame> frames;
   for (auto& f : all)
-    if (!is_val_excluded(f, a.val_every)) frames.push_back(f);
+    if (!is_val_excluded(f, a.val_every, a.val_offset, a.val_gap)) frames.push_back(f);
   if (a.max_frames > 0 && int(frames.size()) > a.max_frames) frames.resize(a.max_frames);
   const int nf = int(frames.size());
   if (nf == 0) { std::fprintf(stderr, "no training frames under %s\n", a.scene_dir.c_str()); return 1; }
@@ -426,7 +431,7 @@ int main(int argc, char** argv) {
   if (!write_vmap(a.out, m, &err)) { std::fprintf(stderr, "[build] %s\n", err.c_str()); return 1; }
 
   auto median = [](std::vector<double> v) {
-    if (v.empty()) return std::nan("");
+    if (v.empty()) return -1.0;  // JSON has no NaN; -1 means "not measured"
     std::nth_element(v.begin(), v.begin() + v.size() / 2, v.end());
     return v[v.size() / 2];
   };
