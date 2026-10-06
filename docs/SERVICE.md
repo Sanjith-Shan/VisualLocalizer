@@ -15,7 +15,43 @@ fixed worker pool with deadline-aware admission control.
 - Capacity is about the heads map. A bigger map has a slower match stage.
 - The service adds no accuracy. Poses are the core's, bit for bit (checked below).
 
-RESULTS_PLACEHOLDER
+## Measured (heads map, real core)
+
+### Pose parity with the core's evaluator
+
+The service returns the same pose as `vloc_eval --c-abi` for the same frame. 50 frames
+(every 20th heads test frame): identical ok flags, identical keypoint, match and inlier
+counts, and translation and rotation errors equal within the CSV's printed precision (max
+difference 4.9e-6 m and 4.9e-5 deg).
+Command: `make -C service e2e` (or `service/scripts/e2e.sh`). Result: `results/service/e2e_heads.json`.
+
+### Service overhead
+
+At 5 req/s (no queueing, host load average 3.8), 150 requests, 6 workers:
+
+| | p50 ms |
+| --- | --- |
+| core's own stage sum (decode+extract+match+pose) | 98.9 |
+| server handler wall time | 99.0 |
+| server minus core (validation, admission, cgo, JSON) | 0.11 |
+| client latency minus core (adds HTTP, loopback, client) | 1.5 |
+
+Client p50 / p95 / p99: 100.3 / 128.0 / 147.1 ms.
+Command: `service/scripts/bench.sh overhead_5rps "-log-level warn" "-rates 5 -duration 30s -warmup 3s -deadline-ms 1000"`.
+Result: `results/service/overhead_5rps.json`.
+
+### Capacity sweep: INTERIM
+
+The full sweep (`SKIP_OVERHEAD=1 service/scripts/sweep.sh`, shedding on vs off up to 2x
+capacity) has not produced a clean run yet: the host was saturated by other work (map
+builds and evaluations at 700 to 950% CPU, load average 40 to 97) each time, and the
+bench script now refuses to measure on a busy host. The only clean points so far are the
+low rates of a run whose upper rates were contaminated and which also exposed the
+admission bug fixed since (`results/service/sweep_shed_on_spiral.json`, BUG_LOG Service 1):
+10 req/s gave p50 101 ms, p99 187 ms, no shedding; 30 req/s gave p50 98 ms, p99 256 ms,
+no shedding (host load 3.8 to 6.8). With a 99 ms median core call on 6 workers the
+expected ceiling is about 60 req/s; that is not yet measured.
+
 
 ## API
 
