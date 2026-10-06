@@ -1,7 +1,11 @@
 // C ABI over the C++ core. No exception may cross this boundary.
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 #include <exception>
+#include <mutex>
+
+#include <opencv2/core.hpp>
 
 #include "localize.h"
 #include "vloc.h"
@@ -22,6 +26,15 @@ void copy_err(char* dst, size_t n, const std::string& msg) {
 extern "C" int vloc_map_load(const char* path, vloc_map** out, char* err, size_t errlen) {
   if (!path || !out) { copy_err(err, errlen, "null argument"); return -1; }
   *out = nullptr;
+  // VLOC_CV_THREADS caps OpenCV's internal thread pool (process-wide). A server that
+  // already runs one localize per core should set it to 1 to avoid oversubscription.
+  static std::once_flag once;
+  std::call_once(once, [] {
+    if (const char* s = std::getenv("VLOC_CV_THREADS")) {
+      int n = std::atoi(s);
+      if (n > 0) cv::setNumThreads(n);
+    }
+  });
   try {
     vloc::MapData d;
     std::string e;
