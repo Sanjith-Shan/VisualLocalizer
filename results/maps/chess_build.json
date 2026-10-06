@@ -1,0 +1,1 @@
+{"map":"results/maps/chess.vmap","mode":"depth","frames":800,"features":1393382,"tracks":711795,"points":488339,"points_tri":0,"mean_track_len":2.20,"dropped_reproj":8251,"dropped_angle":75282,"dropped_depth":4159,"tri_vs_depth_median_m":0.0657,"tri_vs_depth_n":94850,"depth_reproj_median_px":1.677,"seconds":31.5}

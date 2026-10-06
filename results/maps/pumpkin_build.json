@@ -1,0 +1,1 @@
+{"map":"results/maps/pumpkin.vmap","mode":"depth","frames":800,"features":1459958,"tracks":951548,"points":708929,"points_tri":0,"mean_track_len":1.59,"dropped_reproj":10562,"dropped_angle":86070,"dropped_depth":3282,"tri_vs_depth_median_m":0.1241,"tri_vs_depth_n":49026,"depth_reproj_median_px":1.980,"seconds":23.5}

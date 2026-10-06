@@ -1,0 +1,1 @@
+{"map":"results/maps/stairs.vmap","mode":"depth","frames":400,"features":628509,"tracks":444060,"points":298514,"points_tri":0,"mean_track_len":1.50,"dropped_reproj":4564,"dropped_angle":34888,"dropped_depth":1619,"tri_vs_depth_median_m":0.0961,"tri_vs_depth_n":21611,"depth_reproj_median_px":1.736,"seconds":9.8}

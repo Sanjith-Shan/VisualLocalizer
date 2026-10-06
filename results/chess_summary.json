@@ -1,0 +1,22 @@
+{
+  "scene": "chess",
+  "split": "test",
+  "frames": 2000,
+  "localized": 2000,
+  "median_trans_cm": 2.67,
+  "median_rot_deg": 0.968,
+  "pct_within_5cm_5deg": 88.60,
+  "pct_within_2cm_2deg": 33.20,
+  "pct_within_10cm_10deg": 100.00,
+  "latency_ms_p50": 193.8,
+  "latency_ms_p90": 263.8,
+  "latency_ms_p99": 430.6,
+  "stage_ms_p50": {"decode": 1.0, "extract": 92.7, "match": 81.8, "pose": 15.3},
+  "median_inliers": 936,
+  "threads": 10,
+  "wall_s": 41.5,
+  "throughput_fps": 48.3,
+  "map_points": 488339,
+  "map_load_s": 2.05,
+  "command": "core/build/vloc_eval --map results/maps/chess.vmap --scene-dir /Users/sanjithshanmugavel/Data/7scenes/chess --threads 10 --csv results/chess.csv --summary results/chess_summary.json"
+}

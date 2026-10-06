@@ -1,0 +1,22 @@
+{
+  "scene": "pumpkin",
+  "split": "test",
+  "frames": 2000,
+  "localized": 1995,
+  "median_trans_cm": 5.51,
+  "median_rot_deg": 1.375,
+  "pct_within_5cm_5deg": 42.90,
+  "pct_within_2cm_2deg": 6.50,
+  "pct_within_10cm_10deg": 83.65,
+  "latency_ms_p50": 214.9,
+  "latency_ms_p90": 330.3,
+  "latency_ms_p99": 727.6,
+  "stage_ms_p50": {"decode": 0.9, "extract": 96.3, "match": 96.5, "pose": 19.2},
+  "median_inliers": 902,
+  "threads": 10,
+  "wall_s": 47.7,
+  "throughput_fps": 41.9,
+  "map_points": 708929,
+  "map_load_s": 3.04,
+  "command": "core/build/vloc_eval --map results/maps/pumpkin.vmap --scene-dir /Users/sanjithshanmugavel/Data/7scenes/pumpkin --threads 10 --csv results/pumpkin.csv --summary results/pumpkin_summary.json"
+}

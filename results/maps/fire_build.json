@@ -1,0 +1,1 @@
+{"map":"results/maps/fire.vmap","mode":"depth","frames":400,"features":1306846,"tracks":768065,"points":564586,"points_tri":0,"mean_track_len":1.87,"dropped_reproj":3184,"dropped_angle":54590,"dropped_depth":1740,"tri_vs_depth_median_m":0.0410,"tri_vs_depth_n":108912,"depth_reproj_median_px":1.385,"seconds":32.4}
