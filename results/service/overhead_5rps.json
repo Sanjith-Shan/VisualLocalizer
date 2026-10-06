@@ -1,0 +1,49 @@
+{
+  "command": "./bin/vlocload -url http://127.0.0.1:18091 -rates 5 -duration 30s -warmup 3s -deadline-ms 1000 -label overhead_5rps; vlocd -log-level warn -out /Users/sanjithshanmugavel/Documents/VisualLocalizer/results/service/overhead_5rps.json",
+  "deadline_ms": 1000,
+  "frames": 300,
+  "label": "overhead_5rps; vlocd -log-level warn",
+  "latency_note": "latency_ms fields are client-side, from scheduled send time to full response, over 200 responses only",
+  "map": "heads",
+  "runs": [
+    {
+      "offered_rps": 5,
+      "duration_s": 30,
+      "sent": 150,
+      "ok": 150,
+      "ok_no_pose": 0,
+      "shed_503": 0,
+      "timeout_504": 0,
+      "other_error": 0,
+      "client_dropped": 0,
+      "throughput_ok_rps": 5,
+      "shed_rate": 0,
+      "error_rate": 0,
+      "p50_ms": 100.325,
+      "p95_ms": 128.019,
+      "p99_ms": 147.058,
+      "max_ms": 187.033,
+      "shed_p50_ms": 0,
+      "core_p50_ms": 98.906,
+      "server_service_p50_ms": 99.003,
+      "server_queue_p50_ms": 0.01,
+      "server_queue_p99_ms": 0.028,
+      "client_minus_core_p50_ms": 1.518,
+      "server_minus_core_p50_ms": 0.113,
+      "server_service_p99_ms": 145.53,
+      "server_service_max_ms": 185.294,
+      "host_loadavg_start": "3.76 15.12 24.64",
+      "host_loadavg_end": "3.76 14.02 23.91"
+    }
+  ],
+  "scene": "heads",
+  "server": {
+    "engine": "cgo",
+    "maps": 1,
+    "status": "ready"
+  },
+  "time": "2026-10-06T18:48:26Z",
+  "tool": "vlocload",
+  "url": "http://127.0.0.1:18091",
+  "warmup_s": 3
+}

@@ -172,7 +172,12 @@ func (p *Pool) Do(ctx context.Context, fn func()) (Stats, error) {
 	}
 	svc := p.ownBudget()
 	wait := p.EstimateWait()
-	if dl, ok := ctx.Deadline(); ok && !p.cfg.NoDeadlineShed {
+	// When a worker is free the job runs at once, so it is always admitted. This also
+	// keeps the estimate alive: the EWMA only learns from jobs that run, and an estimate
+	// inflated by a burst would otherwise reject everything forever (results/service/
+	// sweep_shed_on_spiral.json, docs/BUG_LOG.md).
+	idle := wait == 0 && len(p.q) == 0
+	if dl, ok := ctx.Deadline(); ok && !p.cfg.NoDeadlineShed && !idle {
 		if time.Until(dl) < wait+svc {
 			p.closeMu.RUnlock()
 			return Stats{}, &Rejection{Err: ErrWouldMiss, RetryAfter: retryAfter(wait), EstWait: wait}

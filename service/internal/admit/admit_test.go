@@ -35,9 +35,13 @@ func TestQueueFull(t *testing.T) {
 func TestWouldMissAndExpired(t *testing.T) {
 	p := New(Config{Workers: 1, MaxQueue: 10, InitSvc: 50 * time.Millisecond})
 	defer p.Close()
+	hold, held := make(chan struct{}), make(chan struct{})
+	go p.Do(context.Background(), func() { close(held); <-hold })
+	<-held
+	defer close(hold)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
-	// 10 ms budget, 50 ms estimated service: rejected before queueing.
+	// Busy worker, 10 ms budget, 50 ms estimated service: rejected before queueing.
 	if _, err := p.Do(ctx, func() {}); !errors.Is(err, ErrWouldMiss) {
 		t.Fatalf("got %v, want would-miss", err)
 	}
@@ -71,5 +75,23 @@ func TestEstimateWait(t *testing.T) {
 	st, err := p.Do(context.Background(), func() { time.Sleep(5 * time.Millisecond) })
 	if err != nil || st.Run < 5*time.Millisecond {
 		t.Fatalf("%v %v", st, err)
+	}
+}
+
+// An idle pool must admit even when its estimate says the job cannot make it, or a stale
+// estimate rejects everything forever (no job runs, so it never updates).
+func TestIdleAlwaysAdmits(t *testing.T) {
+	p := New(Config{Workers: 2, MaxQueue: 10, InitSvc: 10 * time.Second})
+	defer p.Close()
+	for i := range 20 {
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		_, err := p.Do(ctx, func() { time.Sleep(time.Millisecond) })
+		cancel()
+		if err != nil {
+			t.Fatalf("request %d on an idle pool rejected: %v (estimate %v)", i, err, p.ServiceEstimate())
+		}
+	}
+	if p.ServiceEstimate() > 2*time.Second {
+		t.Errorf("estimate did not recover: %v", p.ServiceEstimate())
 	}
 }
