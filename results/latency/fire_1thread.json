@@ -1,0 +1,22 @@
+{
+  "scene": "fire",
+  "split": "test",
+  "frames": 200,
+  "localized": 200,
+  "median_trans_cm": 2.19,
+  "median_rot_deg": 0.969,
+  "pct_within_5cm_5deg": 89.00,
+  "pct_within_2cm_2deg": 42.50,
+  "pct_within_10cm_10deg": 99.50,
+  "latency_ms_p50": 299.7,
+  "latency_ms_p90": 334.6,
+  "latency_ms_p99": 1020.2,
+  "stage_ms_p50": {"decode": 1.1, "extract": 106.8, "match": 173.7, "pose": 17.3},
+  "median_inliers": 1569,
+  "threads": 1,
+  "wall_s": 120.1,
+  "throughput_fps": 1.7,
+  "map_points": 564586,
+  "map_load_s": 2.37,
+  "command": "core/build/vloc_eval --map results/maps/fire.vmap --scene-dir /Users/sanjithshanmugavel/Data/7scenes/fire --threads 1 --stride 10 --csv results/latency/fire_1thread.csv --summary results/latency/fire_1thread.json"
+}

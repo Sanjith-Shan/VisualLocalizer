@@ -1,0 +1,22 @@
+{
+  "scene": "heads",
+  "split": "test",
+  "frames": 100,
+  "localized": 100,
+  "median_trans_cm": 1.09,
+  "median_rot_deg": 0.842,
+  "pct_within_5cm_5deg": 100.00,
+  "pct_within_2cm_2deg": 92.00,
+  "pct_within_10cm_10deg": 100.00,
+  "latency_ms_p50": 95.6,
+  "latency_ms_p90": 123.9,
+  "latency_ms_p99": 150.8,
+  "stage_ms_p50": {"decode": 0.8, "extract": 53.1, "match": 29.6, "pose": 10.5},
+  "median_inliers": 518,
+  "threads": 1,
+  "wall_s": 9.8,
+  "throughput_fps": 10.2,
+  "map_points": 116008,
+  "map_load_s": 0.47,
+  "command": "core/build/vloc_eval --map results/maps/heads.vmap --scene-dir /Users/sanjithshanmugavel/Data/7scenes/heads --threads 1 --stride 10 --csv results/latency/heads_1thread.csv --summary results/latency/heads_1thread.json"
+}

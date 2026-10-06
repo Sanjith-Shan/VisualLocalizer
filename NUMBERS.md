@@ -183,7 +183,40 @@ Source: `throughput_fps` in `results/<scene>_summary.json`.
 
 ## Latency
 
-LATENCY_PLACEHOLDER
+Per-request latency: one request at a time (`--threads 1`, `VLOC_CV_THREADS=1`), every
+10th test frame of each scene, timed from encoded JPEG bytes to pose. Same settings on all
+scenes. Run after the service benchmark finished, each scene starting only once the
+1-minute load average was below 3 (chess, fire) or 4.5 (the rest). The threshold was
+raised because this Mac sits at a load of 2 to 4 with nothing of ours running (a system
+Bluetooth daemon holds one core at 100%). Load at the start of each scene is in
+`results/latency/<scene>_load.json`.
+
+```bash
+tools/latency.sh                                   # chess, fire
+VLOC_MAX_LOAD=4.5 VLOC_SCENES="heads office pumpkin redkitchen stairs" tools/latency.sh
+```
+
+| Scene | Frames | p50 ms | p90 ms | p99 ms | Extract p50 | Match p50 | Pose p50 | Map points |
+|---|---|---|---|---|---|---|---|---|
+| chess | 200 | 131.7 | 164.7 | 177.5 | 64.6 | 55.6 | 10.9 | 488,339 |
+| fire | 200 | 299.7 | 334.6 | 1020.2 | 106.8 | 173.7 | 17.3 | 564,586 |
+| heads | 100 | 95.6 | 123.9 | 150.8 | 53.1 | 29.6 | 10.5 | 116,008 |
+| office | 400 | 139.2 | 222.3 | 291.1 | 63.8 | 62.3 | 11.4 | 736,953 |
+| pumpkin | 200 | 179.3 | 256.0 | 437.5 | 74.0 | 87.9 | 15.0 | 708,929 |
+| redkitchen | 500 | 220.6 | 295.4 | 331.7 | 82.5 | 120.3 | 15.6 | 1,542,391 |
+| stairs | 100 | 170.4 | 241.5 | 267.2 | 79.5 | 76.9 | 13.7 | 298,514 |
+
+Sources: `results/latency/<scene>_1thread.json` and per-frame `_1thread.csv`. Decode is
+about 1 ms everywhere. SIFT extraction and kd-forest matching dominate, and matching grows
+with map size and with how textured the scene is (fire yields the most keypoints per
+frame). With 100 to 500 frames per scene, p99 is close to the maximum and should be read
+that way. The tail is not a property of particular frames: fire `seq-04/frame-000950`
+spent 60.7 s in matching in this run (nothing is excluded; it is the slowest of 200, and
+the 1020 ms p99 is interpolated between the next two, 1019 and 1136 ms), but took 198 ms of
+matching in the main run. Redkitchen `seq-04/frame-000880` took 1494 ms of matching here,
+and 143, 153 and 517 ms when rerun alone three times. The likely cause is the host (other
+agents' jobs, and a disk at 99% full under memory pressure) rather than the algorithm, but
+that is not proven, so the numbers stand as measured.
 
 ## Validation folds (heads training data)
 
