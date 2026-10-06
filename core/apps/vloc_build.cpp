@@ -47,6 +47,8 @@ struct Args {
   // Depth-to-color registration (depth camera fx=fy=585, cx=320, cy=240).
   double depth_f = 585.0, depth_cx = 320.0, depth_cy = 240.0;
   double dc_tx = -0.025, dc_ty = 0.0, dc_tz = 0.0;  // depth camera origin in color camera frame, m
+  std::string pose_file;     // external train poses (e.g. SfM pseudo GT)
+  std::string provenance;    // free text recorded in the summary (git SHA)
   FeatureParams feat;
 };
 
@@ -58,7 +60,8 @@ struct FrameData {
   cv::Vec3d tcw;
 };
 
-const cv::Matx33d kColorK(525, 0, 320, 0, 525, 240, 0, 0, 1);
+// Color intrinsics. 7-Scenes uses f = 525; an SfM pose file brings its own focal.
+cv::Matx33d kColorK(525, 0, 320, 0, 525, 240, 0, 0, 1);
 
 int parse_int(const char* s) { return std::atoi(s); }
 
@@ -67,7 +70,8 @@ void usage() {
                "usage: vloc_build --scene-dir DIR --out MAP.vmap [--name N] [--mode depth|tri|hybrid]\n"
                "  [--window 3] [--match-ratio 0.8] [--epi-px 3] [--reproj-px 4] [--min-angle 2]\n"
                "  [--min-track 2] [--no-depth-singletons] [--contrast 0.01] [--val-every N] [--threads T]\n"
-               "  [--max-features 4000] [--no-rootsift] [--dc-tx M] [--dc-ty M] [--dc-tz M]\n");
+               "  [--max-features 4000] [--no-rootsift] [--dc-tx M] [--dc-ty M] [--dc-tz M]\n"
+               "  [--pose-file pgt_train.txt] [--provenance TEXT]\n");
 }
 
 bool parse(int argc, char** argv, Args* a) {
@@ -97,6 +101,8 @@ bool parse(int argc, char** argv, Args* a) {
     else if (k == "--dc-tx") a->dc_tx = std::atof(next());
     else if (k == "--dc-ty") a->dc_ty = std::atof(next());
     else if (k == "--dc-tz") a->dc_tz = std::atof(next());
+    else if (k == "--pose-file") a->pose_file = next();
+    else if (k == "--provenance") a->provenance = next();
     else { std::fprintf(stderr, "unknown arg %s\n", k.c_str()); return false; }
   }
   if (a->scene_dir.empty() || a->out.empty()) return false;
@@ -208,7 +214,12 @@ int main(int argc, char** argv) {
   Args a;
   if (!parse(argc, argv, &a)) { usage(); return 2; }
   auto T0 = std::chrono::steady_clock::now();
-  std::vector<Frame> all = list_frames(a.scene_dir, "train");
+  PoseFile pf;
+  if (!a.pose_file.empty()) {
+    if (!read_pose_file(a.pose_file, &pf)) { std::fprintf(stderr, "cannot read %s\n", a.pose_file.c_str()); return 1; }
+    kColorK(0, 0) = kColorK(1, 1) = pf.focal;
+  }
+  std::vector<Frame> all = list_frames(a.scene_dir, "train", a.pose_file.empty() ? nullptr : &pf);
   std::vector<Frame> frames;
   for (auto& f : all)
     if (!is_val_excluded(f, a.val_every, a.val_offset, a.val_gap)) frames.push_back(f);
@@ -436,7 +447,10 @@ int main(int argc, char** argv) {
     return v[v.size() / 2];
   };
   double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - T0).count();
-  std::printf("{\"map\":\"%s\",\"mode\":\"%s\",\"frames\":%d,\"features\":%d,\"tracks\":%zu,"
+  std::string cmd;
+  for (int i = 0; i < argc; ++i) { if (i) cmd += ' '; cmd += argv[i]; }
+  std::printf("{\"command\":\"%s\",\"provenance\":\"%s\",\"focal\":%.3f,", cmd.c_str(), a.provenance.c_str(), kColorK(0, 0));
+  std::printf("\"map\":\"%s\",\"mode\":\"%s\",\"frames\":%d,\"features\":%d,\"tracks\":%zu,"
               "\"points\":%zu,\"points_tri\":%zu,\"mean_track_len\":%.2f,\"dropped_reproj\":%zu,"
               "\"dropped_angle\":%zu,\"dropped_depth\":%zu,\"tri_vs_depth_median_m\":%.4f,"
               "\"tri_vs_depth_n\":%zu,\"depth_reproj_median_px\":%.3f,\"seconds\":%.1f}\n",

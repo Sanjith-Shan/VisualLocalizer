@@ -29,6 +29,7 @@ struct Args {
   int limit = 0;
   int stride = 1;
   bool use_c_abi = false;
+  std::string pose_file;  // external GT poses + focal (pseudo GT release format)
   LocalizeParams p;
 };
 
@@ -47,6 +48,7 @@ bool parse(int argc, char** argv, Args* a) {
     else if (k == "--limit") a->limit = std::atoi(next());
     else if (k == "--stride") a->stride = std::max(1, std::atoi(next()));
     else if (k == "--c-abi") a->use_c_abi = true;
+    else if (k == "--pose-file") a->pose_file = next();
     else if (k == "--ratio") a->p.ratio = std::atof(next());
     else if (k == "--checks") a->p.checks = std::atoi(next());
     else if (k == "--max-features") a->p.feat.max_features = std::atoi(next());
@@ -87,7 +89,12 @@ int main(int argc, char** argv) {
                  "  [--no-refine] [--no-active] [--as-radius 6] [--as-ratio 0.8] [--pnp 0|1]\n");
     return 2;
   }
-  std::vector<Frame> all = list_frames(a.scene_dir, a.split), frames;
+  PoseFile pf;
+  if (!a.pose_file.empty() && !read_pose_file(a.pose_file, &pf)) {
+    std::fprintf(stderr, "cannot read %s\n", a.pose_file.c_str());
+    return 1;
+  }
+  std::vector<Frame> all = list_frames(a.scene_dir, a.split, a.pose_file.empty() ? nullptr : &pf), frames;
   for (size_t i = 0; i < all.size(); ++i) {
     if (a.split == "train" && !is_val_query(all[i], a.val_every, a.val_offset)) continue;
     if (i % a.stride) continue;
@@ -110,7 +117,8 @@ int main(int argc, char** argv) {
   std::fprintf(stderr, "[eval] map %s: %d points, loaded+indexed in %.2fs; %zu frames, %d threads\n",
                info.name, info.num_points, load_s, frames.size(), a.threads);
 
-  const vloc_intrinsics K{525.0, 525.0, 320.0, 240.0};
+  const double focal = a.pose_file.empty() ? 525.0 : pf.focal;
+  const vloc_intrinsics K{focal, focal, 320.0, 240.0};
   std::vector<vloc_result> res(frames.size());
   std::vector<double> terr(frames.size(), INFINITY), rerr(frames.size(), INFINITY), total(frames.size());
   cv::setNumThreads(1);  // parallelism is across frames
@@ -163,12 +171,13 @@ int main(int argc, char** argv) {
   // Failed frames count as infinite error, so the median is over all frames.
   if (!a.csv.empty()) {
     FILE* f = std::fopen(a.csv.c_str(), "w");
-    std::fprintf(f, "frame,ok,trans_err_m,rot_err_deg,keypoints,matches,inliers,ms_decode,ms_extract,ms_match,ms_pose,ms_total\n");
+    std::fprintf(f, "frame,ok,trans_err_m,rot_err_deg,keypoints,matches,inliers,ms_decode,ms_extract,ms_match,ms_pose,ms_total,qw,qx,qy,qz,tx,ty,tz\n");
     for (size_t i = 0; i < frames.size(); ++i) {
       const auto& r = res[i];
-      std::fprintf(f, "%s/frame-%06d,%d,%.5f,%.4f,%d,%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f\n", frames[i].seq.c_str(),
+      std::fprintf(f, "%s/frame-%06d,%d,%.8f,%.6f,%d,%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.9f,%.9f,%.9f,%.9f,%.7f,%.7f,%.7f\n", frames[i].seq.c_str(),
                    frames[i].index, r.ok, r.ok ? terr[i] : -1.0, r.ok ? rerr[i] : -1.0, r.num_keypoints,
-                   r.num_matches, r.num_inliers, r.ms_decode, r.ms_extract, r.ms_match, r.ms_pose, total[i]);
+                   r.num_matches, r.num_inliers, r.ms_decode, r.ms_extract, r.ms_match, r.ms_pose, total[i], r.qw, r.qx,
+                   r.qy, r.qz, r.tx, r.ty, r.tz);
     }
     std::fclose(f);
   }
